@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.1
 - Fix: `pg_ctl` failed with "cannot create /data/postgres.log:
   Permission denied" -- the postgres user only owns `/data/postgres`
   (chowned explicitly), not `/data` itself. Log now goes to
