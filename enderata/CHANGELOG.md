@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+- Add `icon.png` (128x128) and `logo.png` (256x256): a navy rounded-
+  square map-pin mark with a teal centre dot, echoing the business
+  plan's navy/teal palette. Generated programmatically (Pillow), not a
+  guessed/downloaded asset.
+
 ## 0.1.1
 - Fix: `pg_ctl` failed with "cannot create /data/postgres.log:
   Permission denied" -- the postgres user only owns `/data/postgres`
