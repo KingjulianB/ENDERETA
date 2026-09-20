@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+- Fix: HA Supervisor build failed with `apt-get: not found` because
+  `build.yaml`'s `python:3.12-slim-bookworm` value didn't match
+  Supervisor's expected `namespace/image[:tag]` format, so it silently
+  fell back to HA's Alpine base image. Removed `build.yaml` and
+  hardcoded `FROM python:3.12-slim-bookworm` in the Dockerfile instead
+  (per Supervisor's own "move build parameters into the Dockerfile
+  directly" deprecation notice). Found via a real build on the user's
+  HA Supervisor.
+- Fix: `repository.yaml` / `config.yaml` now point at the real repo
+  (`https://github.com/KingjulianB/ENDERETA`) instead of a placeholder.
+
 ## 0.1.0
 - Initial scaffold: HA add-on packaging (config.yaml, build.yaml,
   Dockerfile, run.sh, ingress-served viewer).

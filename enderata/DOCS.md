@@ -33,13 +33,15 @@ government-grade hosting exists.
   already-ingested GeoJSON, it does not call `ingestion/open_buildings.py`
   or `ingestion/osm_streets.py` itself. Those two modules are still
   unexercised against real data or network.
-- The Dockerfile and run.sh have not been build/run-tested -- no Docker
-  runtime is available in this development environment either (checked:
-  `docker` is not installed here). Before relying on them: run
-  `docker build .` inside `enderata/` **on a machine with Docker** and
-  fix whatever the geopandas/GDAL compilation step surfaces -- that is
-  the most likely failure point, followed by the Postgres init sequence
-  in run.sh.
+- The Dockerfile now builds past the apt-get/system-deps step (fixed
+  2026-09-20 after a real build on the user's HA Supervisor: `build.yaml`
+  was silently rejected by Supervisor's validation, which fell back to
+  HA's own Alpine base image and broke `apt-get`; fixed by hardcoding
+  `FROM python:3.12-slim-bookworm` directly in the Dockerfile and
+  removing `build.yaml`). The rest of the build (bashio install,
+  `pip install -r requirements.txt` with geopandas/osmnx, run.sh's
+  Postgres init/start sequence) is still unverified -- report the next
+  build/start error and it'll get fixed the same way.
 - No PostGIS write step in the CLI yet (`ingestion/load_postgis.py`
   exists but nothing calls it) -- `number-district` only produces
   GeoJSON/CSV files, it does not touch the database.
@@ -54,8 +56,8 @@ government-grade hosting exists.
   (documented in its docstring) -- valid only for a fixed, closed input
   set. A persistent DB sequence is required before this can run against
   a growing real dataset.
-- `repository.yaml` and `config.yaml` contain placeholder URLs
-  (`<your-org>`) -- replace before publishing anywhere.
+- `repository.yaml` and `config.yaml` now point at the real repo
+  (`https://github.com/KingjulianB/ENDERETA`).
 
 ## Installing as a local add-on
 
@@ -102,10 +104,9 @@ PYTHONPATH=src python -m enderata.cli number-district \
 
 1. Supply the real Huambo district AOI polygon (everything so far has
    run only on the 5-building synthetic fixture).
-2. On a machine with Docker: build-test the Dockerfile and fix the
-   GDAL/geopandas install step; run-test run.sh's Postgres init/start
-   sequence. Not possible in this development environment (no Docker
-   here).
+2. Keep iterating the build on real HA Supervisor output: next likely
+   failure points are the bashio install step, `pip install` compiling
+   geopandas/osmnx, and run.sh's Postgres init/start sequence.
 3. Wire real ingestion in: have `number-district` (or a new command)
    call `ingestion/open_buildings.py` and `ingestion/osm_streets.py`
    instead of reading pre-made GeoJSON, and call
