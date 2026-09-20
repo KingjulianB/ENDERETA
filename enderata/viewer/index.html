@@ -7,10 +7,18 @@
   <style>
     html, body, #map { height: 100%; margin: 0; }
     #map { background: #eef3f5; }
+    #load-demo {
+      position: absolute; z-index: 1000; top: 12px; left: 50px;
+      padding: 8px 14px; border: none; border-radius: 4px;
+      background: #123858; color: #f7fafc; font: 14px sans-serif;
+      cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.3);
+    }
+    #load-demo:disabled { opacity: .6; cursor: default; }
   </style>
 </head>
 <body>
   <div id="map"></div>
+  <button id="load-demo">Load demo data</button>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="map.js"></script>
 </body>

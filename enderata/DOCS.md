@@ -56,12 +56,15 @@ government-grade hosting exists.
   auto-fits to the loaded GeoJSON. Picking a compliant basemap (a
   licensed provider, or self-hosted tiles) is unresolved -- see "Next
   steps".
-- The viewer will look empty until something populates `/data/export`.
-  Nothing does that automatically yet -- run the CLI inside the running
-  container, e.g.:
-  `docker exec -it addon_1de3de6b_enderata python3 -m enderata.cli
-  number-district --buildings <path> --streets <path> --out
-  /data/export` (container name may differ; check `docker ps`).
+- The viewer starts empty until something populates `/data/export`.
+  Click the **"Load demo data"** button in the viewer itself (added in
+  0.1.6) -- it calls `POST /api/load-demo`, which runs the pipeline
+  against the bundled synthetic fixture server-side and reloads the
+  map. This exists specifically because HA's standard "Terminal & SSH"
+  add-on has no docker socket access (`docker: command not found` is
+  the real error users hit trying `docker exec`), so a shell-based
+  workflow isn't viable for most people -- everything needed for the
+  demo must be reachable from the web UI.
 - No PostGIS write step in the CLI yet (`ingestion/load_postgis.py`
   exists but nothing calls it) -- `number-district` only produces
   GeoJSON/CSV files, it does not touch the database.

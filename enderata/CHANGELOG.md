@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.6
+- Fix: 0.1.5's fixture-in-image fix assumed the user could run
+  `docker exec` from HA's "Terminal & SSH" add-on -- that add-on is
+  sandboxed with no docker socket access, so `docker` isn't available
+  there for most users (real error seen: `docker: command not found`).
+  Removed the dependency on shell/docker access entirely: added
+  `POST /api/load-demo` to `viz/server.py`, which runs the pipeline
+  against the bundled synthetic fixture and writes to `/data/export`
+  server-side, plus a "Load demo data" button in the viewer that calls
+  it and reloads the map. Verified end to end with Flask's test client
+  (5/5 features, correct IDs/addresses) before pushing.
+- `loadLayer()` now cache-busts its GeoJSON fetches (`?t=timestamp`) so
+  clicking the button shows fresh data immediately instead of a
+  browser-cached copy of the previous load.
+
 ## 0.1.5
 - Fix: viewer confirmed working (no more OSM 403) but showed a blank
   grey map, because nothing ships data into `/data/export` and the
