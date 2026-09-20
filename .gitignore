@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+data/export/
+enderata/.demo_export/
+
+# Confidential business document -- the remote repo is public, this
+# file is marked "Confidential - Not for distribution" on every page.
+# Remove this line only if you deliberately want it published.
+ENDERETA_Business_Plan.pdf

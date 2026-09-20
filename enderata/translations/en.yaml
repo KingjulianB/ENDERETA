@@ -1,0 +1,10 @@
+configuration:
+  country_code:
+    name: Country code
+    description: "ISO 2-letter country code used as the postal ID prefix (e.g. AO)."
+  district_code:
+    name: District code
+    description: "3-letter code identifying the pilot district (e.g. HUA for Huambo)."
+  aoi_district:
+    name: AOI district
+    description: "Machine name of the area of interest used by the ingestion scripts."

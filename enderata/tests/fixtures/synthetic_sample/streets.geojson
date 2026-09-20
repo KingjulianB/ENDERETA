@@ -1,0 +1,15 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {"street_id": "s1", "name": "Rua da Missao"},
+      "geometry": {"type": "LineString", "coordinates": [[15.735, -12.775], [15.745, -12.775]]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"street_id": "s2", "name": "Rua do Comercio"},
+      "geometry": {"type": "LineString", "coordinates": [[15.735, -12.780], [15.745, -12.780]]}
+    }
+  ]
+}

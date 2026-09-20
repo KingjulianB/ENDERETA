@@ -1,0 +1,21 @@
+name: "ENDERETA"
+version: "0.1.0"
+slug: "enderata"
+description: "Pipeline geospatial et moteur de numerotation ENDERETA - POC district de Huambo"
+url: "https://github.com/<your-org>/enderata"
+arch:
+  - amd64
+  - aarch64
+init: false
+ingress: true
+ingress_port: 8000
+panel_icon: mdi:map-marker-radius
+panel_title: ENDERETA
+options:
+  country_code: "AO"
+  district_code: "HUA"
+  aoi_district: "huambo"
+schema:
+  country_code: str
+  district_code: str
+  aoi_district: str
