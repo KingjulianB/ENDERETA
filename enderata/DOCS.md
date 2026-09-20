@@ -47,9 +47,21 @@ government-grade hosting exists.
   is verified, not just theoretical). `CREATE EXTENSION postgis` then
   failed because the plain `postgis` apt package is client-tools-only
   on Debian -- fixed in 0.1.3 by also installing
-  `postgresql-15-postgis-3`. Whether the extension now creates
-  successfully and the viewer server starts is still unverified --
-  report the next error and it'll get fixed the same way.
+  `postgresql-15-postgis-3`. Confirmed on 0.1.4: the add-on now starts
+  fully and the demo viewer loads through HA ingress.
+- The viewer's raster basemap (OpenStreetMap tiles) was removed in
+  0.1.4 -- every tile 403'd because OSM's tile usage policy forbids
+  using tile.openstreetmap.org from a distributed app without prior
+  OSMF approval. The map now just renders on a plain background and
+  auto-fits to the loaded GeoJSON. Picking a compliant basemap (a
+  licensed provider, or self-hosted tiles) is unresolved -- see "Next
+  steps".
+- The viewer will look empty until something populates `/data/export`.
+  Nothing does that automatically yet -- run the CLI inside the running
+  container, e.g.:
+  `docker exec -it addon_1de3de6b_enderata python3 -m enderata.cli
+  number-district --buildings <path> --streets <path> --out
+  /data/export` (container name may differ; check `docker ps`).
 - No PostGIS write step in the CLI yet (`ingestion/load_postgis.py`
   exists but nothing calls it) -- `number-district` only produces
   GeoJSON/CSV files, it does not touch the database.

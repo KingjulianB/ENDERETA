@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.4
+- Fix: every basemap tile 403'd with "Access blocked -- App is not
+  following the tile usage policy of OpenStreetMap's volunteer-run
+  servers" (seen on a real HA run, screenshot). OSM's tile usage policy
+  explicitly forbids using tile.openstreetmap.org from a
+  packaged/distributed app without prior OSMF approval -- this add-on
+  is exactly that case. Removed the raster tile layer rather than swap
+  in another third-party host with unverified terms; the viewer now
+  renders on a neutral background and auto-fits to whatever GeoJSON
+  loads. Choosing a compliant basemap (licensed provider or self-hosted
+  tiles) is a deployment-time decision, not fixed here.
+- Confirms the full pipeline now renders through HA ingress end to end
+  (map loads, addon reachable) -- this add-on has gone from "does not
+  build" to "runs and serves a page" across 0.1.1-0.1.4.
+
 ## 0.1.3
 - Fix: `CREATE EXTENSION postgis` failed with "extension is not
   available" / missing `postgis.control` even though `apt-get install
