@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# NOT run-tested in this session (no Docker runtime available here) --
-# verify the PostgreSQL init/start sequence on the target arch before
-# relying on it. See DOCS.md "next steps".
+# NOT run-tested on real HA hardware yet beyond the Postgres init below --
+# verify the rest of this sequence before relying on it. See DOCS.md.
+
+OPTIONS_FILE=/data/options.json
+if [ -f "${OPTIONS_FILE}" ]; then
+  export COUNTRY_CODE="$(jq -r '.country_code // "AO"' "${OPTIONS_FILE}")"
+  export DISTRICT_CODE="$(jq -r '.district_code // "HUA"' "${OPTIONS_FILE}")"
+  export AOI_DISTRICT="$(jq -r '.aoi_district // "huambo"' "${OPTIONS_FILE}")"
+fi
 
 PGDATA=/data/postgres
 export PGDATA

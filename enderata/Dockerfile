@@ -17,9 +17,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gdal-bin libgdal-dev gcc curl jq \
     && rm -rf /var/lib/apt/lists/*
 
-# bashio gives addon scripts access to the HA supervisor's config/options.
-RUN curl -sSL https://raw.githubusercontent.com/hassio-addons/bashio/master/install.sh | bash
-
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

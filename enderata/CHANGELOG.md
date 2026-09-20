@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+- Fix: `bashio` install step 404'd (`raw.githubusercontent.com/.../bashio/master/install.sh`
+  no longer resolves) and was dead code anyway -- nothing called bashio.
+  Removed it; `run.sh` now reads add-on options straight from
+  `/data/options.json` via `jq` (already installed) instead.
 - Fix: HA Supervisor build failed with `apt-get: not found` because
   `build.yaml`'s `python:3.12-slim-bookworm` value didn't match
   Supervisor's expected `namespace/image[:tag]` format, so it silently

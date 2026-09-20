@@ -34,13 +34,16 @@ government-grade hosting exists.
   or `ingestion/osm_streets.py` itself. Those two modules are still
   unexercised against real data or network.
 - The Dockerfile now builds past the apt-get/system-deps step (fixed
-  2026-09-20 after a real build on the user's HA Supervisor: `build.yaml`
-  was silently rejected by Supervisor's validation, which fell back to
-  HA's own Alpine base image and broke `apt-get`; fixed by hardcoding
-  `FROM python:3.12-slim-bookworm` directly in the Dockerfile and
-  removing `build.yaml`). The rest of the build (bashio install,
-  `pip install -r requirements.txt` with geopandas/osmnx, run.sh's
-  Postgres init/start sequence) is still unverified -- report the next
+  2026-09-20: `build.yaml` was silently rejected by Supervisor's
+  validation, which fell back to HA's own Alpine base image and broke
+  `apt-get`; fixed by hardcoding `FROM python:3.12-slim-bookworm`
+  directly and removing `build.yaml`) and past the bashio install step
+  (removed 2026-09-20: it was dead weight -- nothing in the codebase
+  actually called bashio, and its install URL 404s. Add-on options are
+  now read directly from `/data/options.json` via `jq` in `run.sh`
+  instead, matching `config.yaml`'s `schema:`). `pip install -r
+  requirements.txt` (geopandas/osmnx compilation) and run.sh's Postgres
+  init/start sequence are still unverified -- report the next
   build/start error and it'll get fixed the same way.
 - No PostGIS write step in the CLI yet (`ingestion/load_postgis.py`
   exists but nothing calls it) -- `number-district` only produces
@@ -105,8 +108,9 @@ PYTHONPATH=src python -m enderata.cli number-district \
 1. Supply the real Huambo district AOI polygon (everything so far has
    run only on the 5-building synthetic fixture).
 2. Keep iterating the build on real HA Supervisor output: next likely
-   failure points are the bashio install step, `pip install` compiling
-   geopandas/osmnx, and run.sh's Postgres init/start sequence.
+   failure points are `pip install` compiling geopandas/osmnx, and
+   run.sh's Postgres init/start sequence (untested beyond `apt-get
+   install postgresql...` succeeding at image-build time).
 3. Wire real ingestion in: have `number-district` (or a new command)
    call `ingestion/open_buildings.py` and `ingestion/osm_streets.py`
    instead of reading pre-made GeoJSON, and call
