@@ -1,6 +1,13 @@
 # Changelog
 
 ## Unreleased
+- Fix: `pg_ctl` failed with "cannot create /data/postgres.log:
+  Permission denied" -- the postgres user only owns `/data/postgres`
+  (chowned explicitly), not `/data` itself. Log now goes to
+  `${PGDATA}/postgres.log`. Also pre-create and chown
+  `/var/run/postgresql` (Debian's compiled-in default unix socket dir),
+  since running initdb/pg_ctl by hand skips the Debian package's own
+  setup for that directory.
 - Fix: `bashio` install step 404'd (`raw.githubusercontent.com/.../bashio/master/install.sh`
   no longer resolves) and was dead code anyway -- nothing called bashio.
   Removed it; `run.sh` now reads add-on options straight from
