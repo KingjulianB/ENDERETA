@@ -33,6 +33,36 @@ belongs in the current `dayX_objectives.md` instead.
   layers on a plain background (`#eef3f5`) and auto-fits the map to
   whatever loads.
 
+### Sovereign building/road detection model — imagery gap (blocks implementation)
+
+- **Context:** to reduce dependency on Google Open Buildings (data-
+  sovereignty argument central to the business plan's government
+  pitch), the user chose to build an independent building/road
+  detection capability starting from an existing pretrained model
+  rather than training from scratch (2026-09-20).
+- **What I found:** SpaceNet 6's winning building-detection models are
+  released under **Apache 2.0** (permissive, commercial use OK),
+  weights on a public S3 bucket
+  (`s3://spacenet-dataset/spacenet-model-weights/spacenet-6/`) — a
+  real, checkable option, not a guess. Road extraction has an
+  equivalent standard approach (U-Net/D-LinkNet style, trained on
+  DeepGlobe) but individual GitHub implementations' licenses still need
+  per-repo verification before use. Microsoft's own global building
+  footprints are open-DATA (ODbL) but NOT open-model — even large
+  players keep trained weights closed while opening outputs, which
+  validates starting from a genuinely open-licensed model (SpaceNet)
+  rather than trying to extract weights from a closed one.
+- **What's still needed:** SpaceNet's models were trained on ~30-50cm/
+  pixel commercial imagery. Fine-tuning/running them on Huambo still
+  needs Huambo imagery at a broadly comparable resolution — this is the
+  SAME open question as "Compliant basemap"/imagery-source research
+  from the prior session, now specifically blocking the ML module too.
+  A resolution decision (buy a small high-res image for the Huambo
+  pilot AOI vs. accept degraded accuracy on a free coarser source like
+  NICFI's 4.7m) is needed before `enderata/ml/` can be built for real.
+- **Status:** model/license path decided (SpaceNet 6, Apache 2.0).
+  Imagery-for-Huambo still open — nothing built yet.
+
 ### Real Huambo AOI boundary
 
 - **What I tried:** built and verified the entire numbering pipeline

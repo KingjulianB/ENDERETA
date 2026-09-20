@@ -23,6 +23,7 @@ continuity on top of that, it doesn't replace it.
 | 1 | Compliant basemap for the viewer | OSM's own tiles are policy-blocked for a packaged app (403 confirmed on real HA run); viewer currently has no basemap, just auto-fit GeoJSON on a plain background | `discrepancies.md` § Compliant basemap |
 | 2 | Real Huambo district AOI polygon | Everything built/tested so far (pipeline, CLI, viewer) runs only on a 5-building synthetic fixture, not real Huambo data | `discrepancies.md` § Real Huambo AOI boundary |
 | 3 | Persistent postal-ID sequencing design | `pipeline.py` currently sequences IDs by sorting building_id in memory — fine for a closed fixture, not for a growing real dataset | `discrepancies.md` § Persistent postal-ID sequencing |
+| 4 | Huambo imagery resolution/source for the sovereign ML model | Model path decided (SpaceNet 6, Apache 2.0, fine-tune not train-from-scratch) but it needs ~30-50cm/pixel imagery of Huambo to be useful — same unresolved gap as decision #1's basemap sourcing, now blocking `enderata/ml/` too | `discrepancies.md` § Sovereign building/road detection model |
 
 ## Known issues (not decisions — being investigated, no action needed from you yet)
 
