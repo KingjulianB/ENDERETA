@@ -42,14 +42,14 @@ government-grade hosting exists.
   actually called bashio, and its install URL 404s. Add-on options are
   now read directly from `/data/options.json` via `jq` in `run.sh`
   instead, matching `config.yaml`'s `schema:`). `pip install -r requirements.txt` (geopandas/osmnx) and the full Docker
-  build now succeed on a real HA install. `initdb` runs fine at
-  container start; `pg_ctl start` initially failed ("Permission denied"
-  writing the log to `/data/postgres.log`, since `/data` itself is
-  root-owned) -- fixed 2026-09-20 by logging inside `${PGDATA}` instead
-  and pre-creating `/var/run/postgresql` for the unix socket. Whether
-  Postgres actually accepts connections and the viewer server starts is
-  still unverified -- report the next error and it'll get fixed the
-  same way.
+  build succeed on a real HA install. `initdb` and `pg_ctl start` both
+  confirmed working on real hardware (the log-permission fix in 0.1.1
+  is verified, not just theoretical). `CREATE EXTENSION postgis` then
+  failed because the plain `postgis` apt package is client-tools-only
+  on Debian -- fixed in 0.1.3 by also installing
+  `postgresql-15-postgis-3`. Whether the extension now creates
+  successfully and the viewer server starts is still unverified --
+  report the next error and it'll get fixed the same way.
 - No PostGIS write step in the CLI yet (`ingestion/load_postgis.py`
   exists but nothing calls it) -- `number-district` only produces
   GeoJSON/CSV files, it does not touch the database.

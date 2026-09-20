@@ -12,8 +12,14 @@ ENV LANG=C.UTF-8 \
     PYTHONUNBUFFERED=1
 
 # System deps: Postgres + PostGIS, plus GDAL/GEOS/PROJ for geopandas/osmnx.
+# NOTE: the generic "postgis" package is client tools/loaders only --
+# it does NOT provide postgis.control, so `CREATE EXTENSION postgis`
+# fails with "extension is not available" even though "postgis" is
+# installed (seen on a real HA run). The versioned
+# postgresql-15-postgis-3 package is what actually ships the server
+# extension for Debian bookworm's default PostgreSQL 15.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        postgresql postgresql-contrib postgis \
+        postgresql postgresql-contrib postgresql-15-postgis-3 postgis \
         gdal-bin libgdal-dev gcc curl jq \
     && rm -rf /var/lib/apt/lists/*
 

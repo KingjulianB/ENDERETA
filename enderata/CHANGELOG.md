@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.3
+- Fix: `CREATE EXTENSION postgis` failed with "extension is not
+  available" / missing `postgis.control` even though `apt-get install
+  postgis` had run. On Debian, the plain `postgis` package is client
+  tools/loaders only -- the server-side extension ships in the
+  version-specific `postgresql-15-postgis-3` package, now installed
+  explicitly alongside it.
+- The earlier `pg_ctl` log-permission fix (0.1.1) is confirmed working
+  on a real HA run: the server now starts successfully before hitting
+  the postgis error above.
+
 ## 0.1.2
 - Add `icon.png` (128x128) and `logo.png` (256x256): a navy rounded-
   square map-pin mark with a teal centre dot, echoing the business
