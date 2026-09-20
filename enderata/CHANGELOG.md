@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.5
+- Fix: viewer confirmed working (no more OSM 403) but showed a blank
+  grey map, because nothing ships data into `/data/export` and the
+  Docker image never included the synthetic fixture used to verify the
+  pipeline. Added `COPY tests/fixtures/synthetic_sample
+  ./fixtures/synthetic_sample` to the Dockerfile so
+  `enderata number-district` has something to run against via
+  `docker exec` without needing real Huambo data yet.
+
 ## 0.1.4
 - Fix: every basemap tile 403'd with "Access blocked -- App is not
   following the tile usage policy of OpenStreetMap's volunteer-run
