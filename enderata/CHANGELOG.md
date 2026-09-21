@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.11
+- Fix: "Clear demo data" (and likely other 0.1.10 button changes)
+  appeared to do nothing -- almost certainly the same class of issue
+  as the earlier OSM-tile fix needing a hard refresh: the browser (via
+  HA's ingress iframe) served a cached `map.js` that predated the new
+  button's event listener, so the new HTML button existed but had no
+  behaviour attached, silently. Root-caused instead of just asking for
+  another hard refresh: the server now sends `Cache-Control: no-cache,
+  no-store, must-revalidate` on `/`, `/index.html` and `/map.js`, so
+  the browser always revalidates instead of serving a stale copy.
+  Verified via Flask's test client (200 OK, correct header present).
+
 ## 0.1.10
 - Fix: loading the satellite layer after loading demo data (or from
   the default view) showed nothing -- `fetchSatellite()` never called

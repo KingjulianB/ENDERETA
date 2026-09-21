@@ -42,6 +42,19 @@ FIXTURES_DIR = os.environ.get(
 app = Flask(__name__, static_folder=None)
 
 
+@app.after_request
+def disable_viewer_caching(response):
+    # The viewer is iframed through HA ingress, which combined with
+    # normal browser caching has repeatedly served a stale index.html/
+    # map.js after an add-on update -- e.g. a button added to the HTML
+    # silently did nothing because the cached JS predated it. Rather
+    # than relying on users to hard-refresh after every update, force
+    # revalidation on every request for the page and its script.
+    if request.path in ("/", "/index.html", "/map.js"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
+
+
 @app.route("/")
 def index():
     return send_from_directory(VIEWER_DIR, "index.html")
