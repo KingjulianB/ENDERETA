@@ -7,18 +7,36 @@
   <style>
     html, body, #map { height: 100%; margin: 0; }
     #map { background: #eef3f5; }
-    #load-demo {
+    .toolbar {
       position: absolute; z-index: 1000; top: 12px; left: 50px;
+      display: flex; gap: 8px;
+    }
+    .toolbar button {
       padding: 8px 14px; border: none; border-radius: 4px;
       background: #123858; color: #f7fafc; font: 14px sans-serif;
       cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.3);
     }
-    #load-demo:disabled { opacity: .6; cursor: default; }
+    #load-satellite { background: #b3541e; }
+    .toolbar button:disabled { opacity: .6; cursor: default; }
+    #satellite-note {
+      position: absolute; z-index: 1000; bottom: 12px; left: 12px;
+      max-width: 320px; padding: 6px 10px; border-radius: 4px;
+      background: rgba(255,255,255,.9); font: 12px sans-serif; color: #333;
+      box-shadow: 0 1px 4px rgba(0,0,0,.2);
+    }
+    #satellite-note[hidden] { display: none; }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <button id="load-demo">Load demo data</button>
+  <div class="toolbar">
+    <button id="load-demo">Load demo data</button>
+    <button id="load-satellite">Load satellite layer (Sentinel-2)</button>
+  </div>
+  <div id="satellite-note" hidden>
+    Coarse built-up signal from real Sentinel-2 imagery (~10m/pixel) --
+    NOT individual building footprints. See DOCS.md.
+  </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="map.js"></script>
 </body>

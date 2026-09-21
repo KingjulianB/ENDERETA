@@ -63,3 +63,41 @@ loadDemoButton.addEventListener("click", () => {
       loadDemoButton.textContent = "Load demo data";
     });
 });
+
+// Satellite built-up layer: a separate trigger and a separate Leaflet
+// layer from streets/buildings above -- it's a different kind of data
+// (a coarse density polygon, not a numbered address) and must never be
+// visually confused with them, hence the distinct colour/style and the
+// on-screen disclaimer.
+let satelliteLayer = null;
+const loadSatelliteButton = document.getElementById("load-satellite");
+const satelliteNote = document.getElementById("satellite-note");
+
+loadSatelliteButton.addEventListener("click", () => {
+  loadSatelliteButton.disabled = true;
+  loadSatelliteButton.textContent = "Fetching Sentinel-2...";
+  fetch("api/load-satellite", { method: "POST" })
+    .then((response) => (response.ok ? response.json() : Promise.reject(response)))
+    .then((result) => {
+      if (satelliteLayer) map.removeLayer(satelliteLayer);
+      return fetch(`data/built_up.geojson?t=${Date.now()}`)
+        .then((response) => response.json())
+        .then((data) => {
+          satelliteLayer = L.geoJSON(data, {
+            style: { color: "#b3541e", weight: 1, fillOpacity: 0.35 },
+          }).addTo(map);
+          satelliteNote.hidden = false;
+          satelliteNote.textContent =
+            `Coarse built-up signal from Sentinel-2 scene ${result.scene_id} ` +
+            `(${result.scene_datetime}, ${result.cloud_cover.toFixed(1)}% cloud) -- ` +
+            "NOT individual building footprints. See DOCS.md.";
+        });
+    })
+    .catch(() =>
+      window.alert("ENDERETA: failed to load the satellite layer -- check the add-on log.")
+    )
+    .finally(() => {
+      loadSatelliteButton.disabled = false;
+      loadSatelliteButton.textContent = "Load satellite layer (Sentinel-2)";
+    });
+});

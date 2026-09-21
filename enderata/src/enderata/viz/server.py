@@ -10,6 +10,14 @@ exists because the standard "Terminal & SSH" HA add-on has no docker
 CLI access (it's sandboxed, no docker socket), so `docker exec` isn't
 available to most users -- the demo has to be triggerable from the web
 UI itself, not just the CLI.
+
+Also exposes /api/load-satellite, which fetches a real Sentinel-2 scene
+over Huambo (via the public AWS Earth Search STAC catalog -- needs
+outbound internet from wherever this add-on runs) and computes a coarse
+NDBI+NDVI built-up mask. This is NOT building-footprint detection (see
+enderata.satellite.built_up's docstring) -- it's a free, legally-clean
+density/extent signal, kept as a separate layer from the numbered
+buildings so the two are never visually confused.
 """
 
 from __future__ import annotations
@@ -22,6 +30,8 @@ import geopandas as gpd
 from flask import Flask, jsonify, send_from_directory
 
 from enderata.pipeline import run_pipeline, to_feature_collection
+from enderata.satellite.pipeline import bbox_from_center, detect_built_up_area
+from enderata.satellite.sentinel2 import HUAMBO_CENTRE
 
 VIEWER_DIR = os.environ.get("ENDERATA_VIEWER_DIR", "/app/viewer")
 DATA_DIR = os.environ.get("ENDERATA_DATA_DIR", "/data/export")
@@ -62,6 +72,31 @@ def load_demo():
     shutil.copy(streets_path, os.path.join(DATA_DIR, "streets.geojson"))
 
     return jsonify({"status": "ok", "count": len(addressed)})
+
+
+@app.route("/api/load-satellite", methods=["POST"])
+def load_satellite():
+    lat, lon = HUAMBO_CENTRE
+    bbox = bbox_from_center(lat, lon, radius_km=1.6)
+
+    try:
+        result = detect_built_up_area(bbox)
+    except RuntimeError as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 502
+
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(os.path.join(DATA_DIR, "built_up.geojson"), "w", encoding="utf-8") as f:
+        json.dump(result.feature_collection, f)
+
+    return jsonify(
+        {
+            "status": "ok",
+            "count": len(result.feature_collection["features"]),
+            "scene_id": result.scene_id,
+            "scene_datetime": result.scene_datetime,
+            "cloud_cover": result.cloud_cover,
+        }
+    )
 
 
 if __name__ == "__main__":

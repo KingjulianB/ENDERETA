@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.8
+- Wire the Sentinel-2 built-up module into both the CLI and the
+  running add-on:
+  - `enderata satellite-builtup [--lat --lon --radius-km --out
+    --max-cloud-cover]` -- defaults to Huambo's verified centre,
+    1.6km radius. Verified live: 199 real polygons from today's
+    actual Sentinel-2 scene.
+  - `POST /api/load-satellite` on the viewer server -- same pipeline,
+    triggered from the web UI (needs outbound internet from the add-on
+    host to reach the public AWS STAC catalog). Verified via Flask's
+    test client, 200 OK, 199 features written to disk.
+  - Viewer: a second toolbar button ("Load satellite layer"), a
+    visually distinct orange semi-transparent layer (never styled like
+    the numbered buildings/streets so the two can't be confused), and
+    an on-screen disclaimer naming the real scene used
+    (id/date/cloud-cover) and stating plainly this is a coarse signal,
+    not building footprints.
+
 ## 0.1.7
 - Add `enderata/satellite/` (new, not yet wired into the running
   add-on's CLI/UI): fetches Sentinel-2 bands from the public AWS Earth

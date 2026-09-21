@@ -23,9 +23,20 @@ government-grade hosting exists.
   hand against `tests/fixtures/synthetic_sample/` (5 fake buildings, 2
   fake streets) -- output confirmed correct (valid check digits, no
   duplicate IDs, address never contains the postal ID).
-- 16/16 automated tests pass, including an integration test that reruns
+- 20/20 automated tests pass, including an integration test that reruns
   the pipeline twice on the fixture and asserts identical postal IDs
   (the permanence guarantee) -- see `tests/integration/`.
+- `enderata satellite-builtup` (CLI) and `POST /api/load-satellite`
+  (viewer button "Load satellite layer") fetch a real, current
+  Sentinel-2 scene over Huambo (public AWS STAC catalog, free, no API
+  key, confirmed commercial-use-safe) and render a coarse built-up-area
+  layer -- **not** building footprints, a density/extent signal only
+  (10m/pixel). Requires outbound internet from wherever the add-on
+  runs (new requirement -- every other feature works fully offline).
+  See `enderata/src/enderata/satellite/` docstrings for what this can
+  and can't do, and `discrepancies.md` § Sovereign building/road
+  detection model for why (NICFI's license ruled it out; no budget yet
+  for imagery precise enough for real building detection).
 
 ## What is NOT done yet -- do not assume otherwise
 

@@ -21,6 +21,8 @@ from pathlib import Path
 import geopandas as gpd
 
 from enderata.pipeline import run_pipeline, to_feature_collection
+from enderata.satellite.pipeline import bbox_from_center, detect_built_up_area
+from enderata.satellite.sentinel2 import HUAMBO_CENTRE
 
 
 def export_demo(buildings_path: str, streets_path: str, out_dir: str) -> None:
@@ -62,6 +64,29 @@ def number_district(
     print(f"[enderata] numbered {len(addressed)} buildings, {unassigned} unassigned (no nearby street)")
 
 
+def satellite_builtup(
+    lat: float,
+    lon: float,
+    radius_km: float,
+    out_dir: str,
+    max_cloud_cover: float,
+) -> None:
+    bbox = bbox_from_center(lat, lon, radius_km)
+    result = detect_built_up_area(bbox, max_cloud_cover=max_cloud_cover)
+
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    with (out / "built_up.geojson").open("w", encoding="utf-8") as f:
+        json.dump(result.feature_collection, f)
+
+    print(
+        f"[enderata] built-up mask from Sentinel-2 scene {result.scene_id} "
+        f"({result.scene_datetime}, {result.cloud_cover:.1f}% cloud) -> "
+        f"{len(result.feature_collection['features'])} polygons "
+        "(coarse density signal, NOT individual buildings -- see DOCS.md)"
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="enderata")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -85,6 +110,16 @@ def main() -> None:
     number_parser.add_argument("--district", default="HUA")
     number_parser.add_argument("--max-distance", type=float, default=None)
 
+    satellite_parser = subparsers.add_parser(
+        "satellite-builtup",
+        help="Fetch a real Sentinel-2 scene and compute a coarse built-up-area mask (NOT building footprints)",
+    )
+    satellite_parser.add_argument("--lat", type=float, default=HUAMBO_CENTRE[0])
+    satellite_parser.add_argument("--lon", type=float, default=HUAMBO_CENTRE[1])
+    satellite_parser.add_argument("--radius-km", type=float, default=1.6)
+    satellite_parser.add_argument("--out", default="/data/export")
+    satellite_parser.add_argument("--max-cloud-cover", type=float, default=20.0)
+
     args = parser.parse_args()
     if args.command == "export-demo":
         export_demo(args.buildings, args.streets, args.out)
@@ -92,6 +127,8 @@ def main() -> None:
         number_district(
             args.buildings, args.streets, args.out, args.country, args.district, args.max_distance
         )
+    elif args.command == "satellite-builtup":
+        satellite_builtup(args.lat, args.lon, args.radius_km, args.out, args.max_cloud_cover)
 
 
 if __name__ == "__main__":
