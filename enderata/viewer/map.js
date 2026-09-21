@@ -1,18 +1,58 @@
-// No raster basemap tiles: OpenStreetMap's tile usage policy explicitly
-// forbids using tile.openstreetmap.org from a packaged/distributed app
-// without prior OSMF sysadmin approval (osm.wiki/Blocked) -- confirmed
-// blocked with a 403 on a real run. Rather than swap in another
-// third-party tile host whose current terms aren't verified either,
-// this POC viewer just renders the data on a neutral background and
-// auto-fits the map to whatever loads. A compliant basemap (a licensed
-// provider, or self-hosted tiles) is a deployment-time decision, not a
-// wiring concern for this fixture-level demo.
+// No third-party raster basemap tiles: OpenStreetMap's tile usage
+// policy explicitly forbids using tile.openstreetmap.org from a
+// packaged/distributed app without prior OSMF sysadmin approval
+// (osm.wiki/Blocked) -- confirmed blocked with a 403 on a real run.
+// Instead, /tiles/{z}/{x}/{y}.pbf serves self-hosted vector tiles read
+// straight out of tiles/huambo.mbtiles (built offline with Planetiler
+// -- see tiles/README.md), covering only the Huambo pilot AOI.
 // Huambo city centre -- verified 2026-09-21 (Wikipedia/geodatos.net,
 // cross-checked against a real Sentinel-2 scene), not an approximation.
 const map = L.map("map", { attributionControl: false }).setView(
   [-12.77611, 15.73917],
   14
 );
+
+// Leaflet.VectorGrid (not a MapLibre migration) so everything else
+// below -- demo layers, satellite overlays, the threshold panel --
+// stays exactly as already built and tested; this only adds one more
+// Leaflet layer. Known limitation: VectorGrid renders geometry, not
+// text labels, so road/place names from the tileset are not drawn.
+// Leaflet.VectorGrid falls back to Leaflet's default blue path/marker
+// style for any OpenMapTiles layer not listed here -- on a real run
+// this showed up as stray blue circles/lines (housenumber points, poi
+// points, etc.) that don't belong in a basemap. HIDDEN suppresses
+// those explicitly rather than leaving them to the default.
+const HIDDEN = { radius: 0, weight: 0, opacity: 0, fillOpacity: 0, fill: false, stroke: false };
+L.vectorGrid
+  .protobuf("tiles/{z}/{x}/{y}.pbf", {
+    maxNativeZoom: 14,
+    vectorTileLayerStyles: {
+      water: { fill: true, fillColor: "#a8d3e6", fillOpacity: 0.6, stroke: false },
+      waterway: { color: "#a8d3e6", weight: 1.5 },
+      landcover: { fill: true, fillColor: "#dbe6cf", fillOpacity: 0.35, stroke: false },
+      landuse: { fill: true, fillColor: "#e6e2d6", fillOpacity: 0.35, stroke: false },
+      park: { fill: true, fillColor: "#cfe3c8", fillOpacity: 0.4, stroke: false },
+      building: { fill: true, fillColor: "#d9d3c8", fillOpacity: 0.5, stroke: true, color: "#bdb6a8", weight: 0.5 },
+      transportation: (properties) => ({
+        color: "#ffffff",
+        weight: properties.class === "motorway" || properties.class === "trunk" ? 2.5 : 1,
+        opacity: 0.9,
+      }),
+      boundary: { color: "#9a9a9a", weight: 0.5, dashArray: [2, 2] },
+      // Rendered as raw geometry (no label placement/text in
+      // VectorGrid) they're just noise -- hide rather than show as
+      // unstyled default markers/lines.
+      housenumber: HIDDEN,
+      poi: HIDDEN,
+      place: HIDDEN,
+      aeroway: HIDDEN,
+      aerodrome_label: HIDDEN,
+      mountain_peak: HIDDEN,
+      transportation_name: HIDDEN,
+    },
+    interactive: false,
+  })
+  .addTo(map);
 
 let bounds = L.latLngBounds([]);
 const activeLayers = [];

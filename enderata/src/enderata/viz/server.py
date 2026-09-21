@@ -32,6 +32,7 @@ from flask import Flask, jsonify, request, send_from_directory
 from enderata.pipeline import run_pipeline, to_feature_collection
 from enderata.satellite.pipeline import bbox_from_center, detect_built_up_area
 from enderata.satellite.sentinel2 import HUAMBO_CENTRE
+from enderata.tileserver import get_tile
 
 VIEWER_DIR = os.environ.get("ENDERATA_VIEWER_DIR", "/app/viewer")
 DATA_DIR = os.environ.get("ENDERATA_DATA_DIR", "/data/export")
@@ -68,6 +69,18 @@ def viewer_assets(filename):
 @app.route("/data/<path:filename>")
 def data_files(filename):
     return send_from_directory(DATA_DIR, filename)
+
+
+@app.route("/tiles/<int:z>/<int:x>/<int:y>.pbf")
+def tiles(z, x, y):
+    # See tiles/README.md: huambo.mbtiles is pre-generated (Planetiler,
+    # offline), this just reads the matching blob out of it.
+    tile = get_tile(z, x, y)
+    if tile is None:
+        return "", 204
+    response = app.response_class(tile, mimetype="application/x-protobuf")
+    response.headers["Content-Encoding"] = "gzip"  # MBTiles stores tiles pre-gzipped
+    return response
 
 
 @app.route("/api/load-demo", methods=["POST"])

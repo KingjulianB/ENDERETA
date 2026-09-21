@@ -20,10 +20,9 @@ continuity on top of that, it doesn't replace it.
 
 | # | Decision | One-line context | Full detail |
 |---|---|---|---|
-| 1 | Compliant basemap for the viewer | OSM's own tiles are policy-blocked for a packaged app (403 confirmed on real HA run); viewer currently has no basemap, just auto-fit GeoJSON on a plain background | `discrepancies.md` § Compliant basemap |
 | 2 | Real Huambo district AOI polygon | Everything built/tested so far (pipeline, CLI, viewer) runs only on a 5-building synthetic fixture, not real Huambo data | `discrepancies.md` § Real Huambo AOI boundary |
 | 3 | Persistent postal-ID sequencing design | `pipeline.py` currently sequences IDs by sorting building_id in memory — fine for a closed fixture, not for a growing real dataset | `discrepancies.md` § Persistent postal-ID sequencing |
-| 4 | Huambo imagery resolution/source for the sovereign ML model | Model path decided (SpaceNet 6, Apache 2.0, fine-tune not train-from-scratch) but it needs ~30-50cm/pixel imagery of Huambo to be useful — same unresolved gap as decision #1's basemap sourcing, now blocking `enderata/ml/` too | `discrepancies.md` § Sovereign building/road detection model |
+| 4 | Huambo imagery resolution/source for the sovereign ML model | Model path decided (SpaceNet 6, Apache 2.0, fine-tune not train-from-scratch) but it needs ~30-50cm/pixel imagery of Huambo to be useful — the basemap's own imagery gap (decision #1) is now resolved via self-hosted OSM vector tiles, but that doesn't help here: SpaceNet needs sub-metre imagery OSM data can't provide | `discrepancies.md` § Sovereign building/road detection model |
 
 ## Known issues (not decisions — being investigated, no action needed from you yet)
 
@@ -44,5 +43,6 @@ continuity on top of that, it doesn't replace it.
 | 5 | Every basemap tile 403'd | OpenStreetMap's tile usage policy forbids `tile.openstreetmap.org` in a distributed/packaged app without prior OSMF approval — tile layer removed, viewer auto-fits to GeoJSON on a plain background instead (see open decision #1 above for a real basemap) — fixed in v0.1.4 |
 | 6 | Confidential business-plan PDF risk on a public repo | `ENDERETA_Business_Plan.pdf` (marked "Confidential — Not for distribution") kept local-only, added to `.gitignore` before the first push |
 | 9 | Viewer showed a blank grey map after the tile fix | Nothing populated `/data/export`; first fix (ship the fixture in the image, v0.1.5) still needed `docker exec`, which failed (`docker: command not found`) since HA's "Terminal & SSH" add-on has no docker socket access. Real fix (v0.1.6): a "Load demo data" button in the viewer calling a new `POST /api/load-demo` route that runs the pipeline server-side — no shell/docker access needed at all |
+| 10 | Compliant basemap for the viewer | Self-hosted: `tiles/huambo.mbtiles` (491KB, OpenMapTiles vector tiles, offline-generated with Planetiler from Angola's real Geofabrik OSM extract, clipped to the Huambo AOI) served straight from that SQLite file at `GET /tiles/<z>/<x>/<y>.pbf`, rendered client-side with Leaflet.VectorGrid — no third party tile server, no usage-policy risk. Verified in a real browser (chrome-devtools screenshots), including a real rendering bug caught and fixed (unstyled OpenMapTiles layers fell back to Leaflet's default blue marker style) — fixed in v0.1.13 |
 | 7 | Personal screenshot accidentally committed to the public repo | A `git add -A` swept up a screenshot containing browser tabs/local IP; untracked, history rewritten with `git filter-branch`, and force-pushed after explicit user confirmation |
 | 8 | Add-on had no icon/logo | Generated a navy map-pin mark with a teal accent (Pillow, programmatic — not a guessed/downloaded asset); `icon.png` + `logo.png` added in v0.1.2 |

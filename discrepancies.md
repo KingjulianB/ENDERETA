@@ -12,27 +12,6 @@ belongs in the current `dayX_objectives.md` instead.
 
 ## Open
 
-### Compliant basemap for the viewer
-
-- **What I tried:** the standard Leaflet default, `tile.openstreetmap.org`.
-  Every tile came back `403 Access blocked` (confirmed via a real
-  screenshot from the running add-on): OSM's tile usage policy
-  (osm.wiki/Blocked) explicitly requires prior OSMF sysadmin approval
-  for any distributed/packaged application — a Home Assistant add-on
-  other people can install is exactly that case, so this isn't a
-  transient error, it's policy-as-designed.
-- **What's needed:** a decision on how to get a real basemap without
-  repeating the mistake of guessing a third-party host's current terms:
-  - Self-host vector or raster tiles (most compliant long-term, more
-    setup work).
-  - A licensed provider with an API key you hold (MapTiler, Stadia
-    Maps, etc. — needs an account/key, a recurring cost at scale).
-  - Keep no basemap for now (current state) and only add one once a
-    provider decision is made deliberately, not improvised again.
-- **Status:** currently no basemap. `viewer/map.js` renders GeoJSON
-  layers on a plain background (`#eef3f5`) and auto-fits the map to
-  whatever loads.
-
 ### Sovereign building/road detection model — imagery gap (blocks implementation)
 
 - **Context:** to reduce dependency on Google Open Buildings (data-

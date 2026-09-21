@@ -23,9 +23,18 @@ government-grade hosting exists.
   hand against `tests/fixtures/synthetic_sample/` (5 fake buildings, 2
   fake streets) -- output confirmed correct (valid check digits, no
   duplicate IDs, address never contains the postal ID).
-- 20/20 automated tests pass, including an integration test that reruns
+- 23/23 automated tests pass, including an integration test that reruns
   the pipeline twice on the fixture and asserts identical postal IDs
   (the permanence guarantee) -- see `tests/integration/`.
+- The viewer now has a real self-hosted basemap: `tiles/huambo.mbtiles`
+  (OpenMapTiles vector tiles, generated offline with Planetiler --
+  see `tiles/README.md`) served at `GET /tiles/<z>/<x>/<y>.pbf` and
+  rendered client-side with Leaflet.VectorGrid. No third-party tile
+  host, no usage-policy risk (unlike the earlier OSM-tile 403). Roads,
+  buildings, water and landuse render; road/place text labels don't
+  (VectorGrid renders geometry, not label placement -- a known,
+  accepted limitation for now). Verified in a real browser
+  (chrome-devtools screenshots), not just Python tests.
 - `enderata satellite-builtup` (CLI) and `POST /api/load-satellite`
   (viewer button "Load satellite layer") fetch a real, current
   Sentinel-2 scene over Huambo (public AWS STAC catalog, free, no API

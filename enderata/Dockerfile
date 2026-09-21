@@ -30,6 +30,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src ./src
 COPY viewer ./viewer
 COPY tests/fixtures/synthetic_sample ./fixtures/synthetic_sample
+COPY tiles ./tiles
 COPY run.sh /run.sh
 RUN chmod a+x /run.sh
 

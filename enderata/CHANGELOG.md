@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.1.13
+- Add a real self-hosted basemap: `enderata/tileserver.py` reads
+  vector tile blobs directly out of `tiles/huambo.mbtiles` (generated
+  offline with Planetiler -- see `tiles/README.md`), served at
+  `GET /tiles/<z>/<x>/<y>.pbf` (TMS->XYZ row conversion verified
+  against real data: the independently-computed tile covering Huambo's
+  centre matches the stored row exactly). Dockerfile now bundles
+  `tiles/` into the image.
+- Viewer: added Leaflet.VectorGrid (not a MapLibre migration -- keeps
+  every already-tested layer, button and panel unchanged) rendering
+  this tileset as the map's base layer -- roads, buildings, water,
+  landuse. Fixed a real rendering bug found via an actual browser
+  screenshot: OpenMapTiles layers with no explicit style
+  (`housenumber`, `poi`, `place`, etc.) fell back to Leaflet's default
+  blue marker/path style, showing as stray blue circles/lines; now
+  explicitly hidden.
+- Verified end to end in a real browser (chrome-devtools, not just
+  Python tests): basemap renders correctly, demo data load/clear still
+  works on top of it, satellite layer + threshold panel still work
+  together with it. 3 new unit tests (tileserver against the real
+  committed mbtiles file), 23/23 passing.
+
 ## 0.1.12
 - Fix: the true-colour/NDBI/NDVI image overlays added in 0.1.9 were
   only visible after manually checking their box in the layer control
