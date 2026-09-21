@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.1.7
+- Add `enderata/satellite/` (new, not yet wired into the running
+  add-on's CLI/UI): fetches Sentinel-2 bands from the public AWS Earth
+  Search STAC catalog (free, no API key, confirmed commercial-use-safe
+  under Copernicus' open data policy) and computes a coarse "built-up
+  area" mask from NDBI+NDVI. This is the free, legally-clean path for
+  a sovereignty-aligned satellite signal while there's no budget for
+  the high-res imagery SpaceNet-based building detection would need.
+  Verified against a real, current Sentinel-2 scene over Huambo's
+  actual (now-confirmed) centre -- caught a tile-boundary bug along
+  the way. Explicitly NOT building-footprint detection (10m/pixel);
+  documented as a density/extent signal only. 4 new unit tests, 20/20
+  passing.
+- Fixed Huambo's centre coordinates in the viewer from an unverified
+  approximation to a confirmed value (cross-checked against Wikipedia/
+  geodatos.net and a real satellite image); the old value was already
+  accurate to ~30m, so this changes nothing visible, just removes a
+  "not verified" caveat.
+- New dependencies: `rasterio`, `pystac-client` (added to
+  requirements.txt/pyproject.toml -- increases the Docker image's
+  build time/size, not yet exercised in that environment).
+
 ## 0.1.6
 - Fix: 0.1.5's fixture-in-image fix assumed the user could run
   `docker exec` from HA's "Terminal & SSH" add-on -- that add-on is

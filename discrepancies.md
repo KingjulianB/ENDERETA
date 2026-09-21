@@ -53,15 +53,38 @@ belongs in the current `dayX_objectives.md` instead.
   validates starting from a genuinely open-licensed model (SpaceNet)
   rather than trying to extract weights from a closed one.
 - **What's still needed:** SpaceNet's models were trained on ~30-50cm/
-  pixel commercial imagery. Fine-tuning/running them on Huambo still
-  needs Huambo imagery at a broadly comparable resolution — this is the
-  SAME open question as "Compliant basemap"/imagery-source research
-  from the prior session, now specifically blocking the ML module too.
-  A resolution decision (buy a small high-res image for the Huambo
-  pilot AOI vs. accept degraded accuracy on a free coarser source like
-  NICFI's 4.7m) is needed before `enderata/ml/` can be built for real.
-- **Status:** model/license path decided (SpaceNet 6, Apache 2.0).
-  Imagery-for-Huambo still open — nothing built yet.
+  pixel commercial imagery — that gap is NOT closed (see below), so the
+  SpaceNet building-footprint model itself is still not usable on
+  Huambo. Real high-res imagery (paid) or a genuinely free, adequately-
+  licensed source remains an open, likely-later item once budget
+  exists.
+- **2026-09-21, zero-budget path taken instead:** user confirmed no
+  imagery budget for now. Checked Planet NICFI's actual license text
+  (not just its resolution) — **it's non-commercial-only with a
+  share-alike derivative clause**, incompatible with ENDERETA's
+  commercial/government-contract model, so it's excluded on legal
+  grounds, not just resolution. Sentinel-2 (Copernicus) confirmed free
+  for any use including commercial (ESA open data policy).
+  Implemented and verified end-to-end against a REAL current scene:
+  `enderata/src/enderata/satellite/sentinel2.py` (fetches red/nir/
+  swir16 bands via the public AWS Earth Search STAC catalog, no API
+  key) + `built_up.py` (NDBI+NDVI built-up mask, vectorized to
+  GeoJSON). Caught and fixed a real bug along the way: the
+  previously-unverified Huambo coordinate was ~30m off (negligible)
+  but sat right on a Sentinel-2 tile boundary, so an unverified nearby
+  tile initially returned a half-empty image; the correct tile
+  (33LWF) was found by checking actual tile bounds. Visual sanity
+  check (mask overlaid on true-colour imagery) confirmed the built-up
+  mask tracks Huambo's real street grid and excludes its parks/rivers
+  — but is over-inclusive at the city edges (bare/cleared ground reads
+  as "built-up", a known NDBI limitation, not fixed here). This is a
+  coarse density/extent signal, not a building-footprint replacement —
+  documented plainly in the module docstrings.
+- **Status:** SpaceNet path still blocked on imagery budget/licensing.
+  Sentinel-2 NDBI/NDVI path built, tested (4 new unit tests, 20/20
+  total passing), and verified against real data — usable today as a
+  free, legally-clean, coarse sovereignty-aligned signal, with its
+  precision limits documented rather than overstated.
 
 ### Real Huambo AOI boundary
 

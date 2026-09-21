@@ -7,8 +7,10 @@
 // auto-fits the map to whatever loads. A compliant basemap (a licensed
 // provider, or self-hosted tiles) is a deployment-time decision, not a
 // wiring concern for this fixture-level demo.
+// Huambo city centre -- verified 2026-09-21 (Wikipedia/geodatos.net,
+// cross-checked against a real Sentinel-2 scene), not an approximation.
 const map = L.map("map", { attributionControl: false }).setView(
-  [-12.7756, 15.7392],
+  [-12.77611, 15.73917],
   14
 );
 
