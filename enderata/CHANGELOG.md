@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.12
+- Fix: the true-colour/NDBI/NDVI image overlays added in 0.1.9 were
+  only visible after manually checking their box in the layer control
+  -- off by default, so the panel only ever showed the neutral grey
+  background plus the built-up mask, which is exactly what was
+  reported ("just the grey and the red"). The real Sentinel-2 photo is
+  the whole point of this panel, so it's now shown by default
+  (underneath the semi-transparent mask); NDBI/NDVI heatmaps stay
+  opt-in via the layer control, to avoid three overlapping heatmaps at
+  once.
+
 ## 0.1.11
 - Fix: "Clear demo data" (and likely other 0.1.10 button changes)
   appeared to do nothing -- almost certainly the same class of issue

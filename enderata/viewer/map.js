@@ -130,14 +130,20 @@ function fetchSatellite(ndbiThreshold, ndviThreshold) {
           ndbiOverlay = L.imageOverlay(`data/ndbi.png?t=${Date.now()}`, imgBounds, { opacity: 0.85 });
           ndviOverlay = L.imageOverlay(`data/ndvi.png?t=${Date.now()}`, imgBounds, { opacity: 0.85 });
 
+          // True colour on by default, underneath the mask -- seeing the
+          // real photo is the whole point of this panel, it shouldn't
+          // require hunting for a checkbox first. NDBI/NDVI stay opt-in
+          // (showing all three heatmaps at once is visual noise); order
+          // matters here, Leaflet stacks later .addTo() calls on top.
+          trueColourOverlay.addTo(map);
           satelliteMaskLayer.addTo(map);
           map.fitBounds(imgBounds, { padding: [24, 24] });
           satelliteLayerControl = L.control
             .layers(
               null,
               {
-                "Built-up mask": satelliteMaskLayer,
                 "True colour (Sentinel-2)": trueColourOverlay,
+                "Built-up mask": satelliteMaskLayer,
                 "NDBI heatmap": ndbiOverlay,
                 "NDVI heatmap": ndviOverlay,
               },

@@ -1,5 +1,5 @@
 name: "ENDERETA"
-version: "0.1.11"
+version: "0.1.12"
 slug: "enderata"
 description: "Pipeline geospatial et moteur de numerotation ENDERETA - POC district de Huambo"
 url: "https://github.com/KingjulianB/ENDERETA"
