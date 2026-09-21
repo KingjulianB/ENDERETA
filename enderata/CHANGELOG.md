@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.1.15
+- Diagnosing "no map at all" reported on a real HA run: verified the
+  committed `tiles/huambo.mbtiles` is byte-identical on GitHub (sha256
+  matches local), the Dockerfile's `COPY tiles ./tiles` is present, no
+  `.dockerignore` excludes it, and `map.js`'s vector tile layer code is
+  unchanged from what was confirmed working in a real browser just
+  before the previous push -- could not reproduce the failure locally.
+- Hardening while the root cause is confirmed: `/tiles/<z>/<x>/<y>.pbf`
+  previously raised an unhandled 500 if the mbtiles file were ever
+  missing at runtime, with nothing logged -- a silently blank basemap
+  is indistinguishable from a dozen other causes without a log line.
+  Now logs clearly at import time ("found ... " or "WARNING: ... does
+  not exist") and per failed request, and returns a clean 404 instead
+  of crashing.
+- Added `.gitattributes` marking `*.mbtiles`/`*.png`/`*.pdf` as binary
+  explicitly -- `git check-attr` showed these were previously
+  undeclared ("text: unspecified"), protected only by git's heuristic
+  auto-detection. No corruption found this time, but this removes the
+  risk for good on any future clone/checkout.
+- Next: read the add-on's own log (Settings -> Add-ons -> ENDERETA ->
+  Log) after updating to this version -- it will now say directly
+  whether huambo.mbtiles was found in the container.
+
 ## 0.1.14
 - Fix: the basemap's building/landcover/landuse/park polygons rendered
   as a solid, over-saturated blob with dark cell-like seams on a real

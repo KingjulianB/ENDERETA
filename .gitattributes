@@ -1,0 +1,8 @@
+# Explicit binary markers -- don't rely on git's heuristic auto-detect
+# for files that must survive byte-for-byte on every clone/checkout
+# (a corrupted tiles/huambo.mbtiles would silently blank the basemap
+# with no obvious error). "text: unspecified" showed these were
+# previously undeclared, protected only by heuristic detection.
+*.mbtiles binary
+*.png binary
+*.pdf binary

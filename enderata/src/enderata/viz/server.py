@@ -75,7 +75,14 @@ def data_files(filename):
 def tiles(z, x, y):
     # See tiles/README.md: huambo.mbtiles is pre-generated (Planetiler,
     # offline), this just reads the matching blob out of it.
-    tile = get_tile(z, x, y)
+    try:
+        tile = get_tile(z, x, y)
+    except FileNotFoundError as exc:
+        # tileserver already logs this once at import time; log again per
+        # request (rate-limited by simply not looping) so it's impossible
+        # to miss in the add-on log when the basemap is blank.
+        print(f"[server] /tiles/{z}/{x}/{y}.pbf failed: {exc}")
+        return "", 404
     if tile is None:
         return "", 204
     response = app.response_class(tile, mimetype="application/x-protobuf")

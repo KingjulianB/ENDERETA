@@ -19,6 +19,14 @@ from pathlib import Path
 
 MBTILES_PATH = os.environ.get("ENDERATA_MBTILES_PATH", "/app/tiles/huambo.mbtiles")
 
+# Printed once at import time (visible in the HA add-on log, PYTHONUNBUFFERED=1
+# is set in the Dockerfile) -- "map is blank" is otherwise silent and
+# indistinguishable from a dozen other causes without this.
+if Path(MBTILES_PATH).exists():
+    print(f"[tileserver] found {MBTILES_PATH} ({Path(MBTILES_PATH).stat().st_size} bytes)")
+else:
+    print(f"[tileserver] WARNING: {MBTILES_PATH} does not exist -- basemap will be blank")
+
 
 def _connect() -> sqlite3.Connection:
     if not Path(MBTILES_PATH).exists():
