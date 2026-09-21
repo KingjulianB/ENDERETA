@@ -18,13 +18,26 @@
     }
     #load-satellite { background: #b3541e; }
     .toolbar button:disabled { opacity: .6; cursor: default; }
-    #satellite-note {
+    #satellite-panel {
       position: absolute; z-index: 1000; bottom: 12px; left: 12px;
-      max-width: 320px; padding: 6px 10px; border-radius: 4px;
-      background: rgba(255,255,255,.9); font: 12px sans-serif; color: #333;
+      width: 300px; padding: 10px 12px; border-radius: 4px;
+      background: rgba(255,255,255,.95); font: 12px sans-serif; color: #333;
       box-shadow: 0 1px 4px rgba(0,0,0,.2);
     }
-    #satellite-note[hidden] { display: none; }
+    #satellite-panel[hidden] { display: none; }
+    #satellite-panel .row {
+      display: flex; align-items: center; gap: 6px; margin: 4px 0;
+    }
+    #satellite-panel .row label { flex: 0 0 auto; width: 95px; }
+    #satellite-panel .row input[type="range"] { flex: 1 1 auto; }
+    #satellite-panel .row output { flex: 0 0 auto; width: 34px; text-align: right; }
+    #satellite-note { margin-bottom: 6px; }
+    #recompute {
+      width: 100%; margin-top: 4px; padding: 5px; border: none;
+      border-radius: 4px; background: #b3541e; color: #f7fafc;
+      cursor: pointer;
+    }
+    #recompute:disabled { opacity: .6; cursor: default; }
   </style>
 </head>
 <body>
@@ -33,9 +46,22 @@
     <button id="load-demo">Load demo data</button>
     <button id="load-satellite">Load satellite layer (Sentinel-2)</button>
   </div>
-  <div id="satellite-note" hidden>
-    Coarse built-up signal from real Sentinel-2 imagery (~10m/pixel) --
-    NOT individual building footprints. See DOCS.md.
+  <div id="satellite-panel" hidden>
+    <div id="satellite-note">
+      Coarse built-up signal from real Sentinel-2 imagery (~10m/pixel) --
+      NOT individual building footprints. See DOCS.md.
+    </div>
+    <div class="row">
+      <label for="ndbi-threshold">NDBI &gt;</label>
+      <input type="range" id="ndbi-threshold" min="-0.3" max="0.3" step="0.01" value="0.0" />
+      <output id="ndbi-threshold-value">0.00</output>
+    </div>
+    <div class="row">
+      <label for="ndvi-threshold">NDVI &lt;</label>
+      <input type="range" id="ndvi-threshold" min="0" max="0.6" step="0.01" value="0.3" />
+      <output id="ndvi-threshold-value">0.30</output>
+    </div>
+    <button id="recompute">Recompute with these thresholds</button>
   </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="map.js"></script>

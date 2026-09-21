@@ -70,20 +70,31 @@ def satellite_builtup(
     radius_km: float,
     out_dir: str,
     max_cloud_cover: float,
+    ndbi_threshold: float,
+    ndvi_threshold: float,
 ) -> None:
     bbox = bbox_from_center(lat, lon, radius_km)
-    result = detect_built_up_area(bbox, max_cloud_cover=max_cloud_cover)
-
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
+
+    result = detect_built_up_area(
+        bbox,
+        max_cloud_cover=max_cloud_cover,
+        ndbi_threshold=ndbi_threshold,
+        ndvi_threshold=ndvi_threshold,
+        image_dir=str(out),
+    )
+
     with (out / "built_up.geojson").open("w", encoding="utf-8") as f:
         json.dump(result.feature_collection, f)
 
     print(
         f"[enderata] built-up mask from Sentinel-2 scene {result.scene_id} "
-        f"({result.scene_datetime}, {result.cloud_cover:.1f}% cloud) -> "
+        f"({result.scene_datetime}, {result.cloud_cover:.1f}% cloud, "
+        f"ndbi>{ndbi_threshold} & ndvi<{ndvi_threshold}) -> "
         f"{len(result.feature_collection['features'])} polygons "
-        "(coarse density signal, NOT individual buildings -- see DOCS.md)"
+        "(coarse density signal, NOT individual buildings -- see DOCS.md). "
+        f"true_colour.png / ndbi.png / ndvi.png also written to {out} for inspection."
     )
 
 
@@ -119,6 +130,8 @@ def main() -> None:
     satellite_parser.add_argument("--radius-km", type=float, default=1.6)
     satellite_parser.add_argument("--out", default="/data/export")
     satellite_parser.add_argument("--max-cloud-cover", type=float, default=20.0)
+    satellite_parser.add_argument("--ndbi-threshold", type=float, default=0.0)
+    satellite_parser.add_argument("--ndvi-threshold", type=float, default=0.3)
 
     args = parser.parse_args()
     if args.command == "export-demo":
@@ -128,7 +141,15 @@ def main() -> None:
             args.buildings, args.streets, args.out, args.country, args.district, args.max_distance
         )
     elif args.command == "satellite-builtup":
-        satellite_builtup(args.lat, args.lon, args.radius_km, args.out, args.max_cloud_cover)
+        satellite_builtup(
+            args.lat,
+            args.lon,
+            args.radius_km,
+            args.out,
+            args.max_cloud_cover,
+            args.ndbi_threshold,
+            args.ndvi_threshold,
+        )
 
 
 if __name__ == "__main__":

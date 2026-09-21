@@ -21,6 +21,7 @@ from dataclasses import dataclass
 import numpy as np
 import rasterio
 from pystac_client import Client
+from rasterio.transform import array_bounds
 from rasterio.warp import transform_bounds
 from rasterio.windows import from_bounds
 
@@ -38,10 +39,13 @@ class SceneBands:
     resampled to the same pixel grid so they can be combined directly."""
 
     red: np.ndarray
+    green: np.ndarray
+    blue: np.ndarray
     nir: np.ndarray
     swir16: np.ndarray
     transform: rasterio.Affine
     crs: str
+    bounds_wgs84: tuple[float, float, float, float]  # (west, south, east, north)
     scene_id: str
     cloud_cover: float
     datetime: str
@@ -66,14 +70,15 @@ def find_recent_scene(bbox_wgs84: tuple[float, float, float, float], max_cloud_c
 
 
 def read_bands(item, bbox_wgs84: tuple[float, float, float, float], out_size: int = 600) -> SceneBands:
-    """Windowed-read red/nir/swir16 for `bbox_wgs84` from a STAC item.
+    """Windowed-read red/green/blue/nir/swir16 for `bbox_wgs84` from a
+    STAC item.
 
     `out_size` controls the output raster's side length in pixels (all
-    three bands are resampled to this common grid, since swir16 ships
-    at 20m native resolution vs 10m for red/nir).
+    bands are resampled to this common grid, since swir16 ships at 20m
+    native resolution vs 10m for the others).
     """
 
-    def _read(asset_key: str) -> tuple[np.ndarray, rasterio.Affine, str]:
+    def _read(asset_key: str) -> tuple[np.ndarray, rasterio.Affine, str, tuple]:
         href = item.assets[asset_key].href
         with rasterio.open(href) as ds:
             bounds_proj = transform_bounds("EPSG:4326", ds.crs, *bbox_wgs84)
@@ -81,18 +86,26 @@ def read_bands(item, bbox_wgs84: tuple[float, float, float, float], out_size: in
             arr = ds.read(1, window=window, out_shape=(out_size, out_size)).astype("float32")
             transform = ds.window_transform(window)
             crs = ds.crs.to_string()
-        return arr, transform, crs
+            window_bounds_proj = array_bounds(out_size, out_size, transform)
+        return arr, transform, crs, window_bounds_proj
 
-    red, transform, crs = _read("red")
-    nir, _, _ = _read("nir")
-    swir16, _, _ = _read("swir16")
+    red, transform, crs, window_bounds_proj = _read("red")
+    green, _, _, _ = _read("green")
+    blue, _, _, _ = _read("blue")
+    nir, _, _, _ = _read("nir")
+    swir16, _, _, _ = _read("swir16")
+
+    bounds_wgs84 = transform_bounds(crs, "EPSG:4326", *window_bounds_proj)
 
     return SceneBands(
         red=red,
+        green=green,
+        blue=blue,
         nir=nir,
         swir16=swir16,
         transform=transform,
         crs=crs,
+        bounds_wgs84=bounds_wgs84,
         scene_id=item.id,
         cloud_cover=float(item.properties.get("eo:cloud_cover", -1)),
         datetime=str(item.datetime),

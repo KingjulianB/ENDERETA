@@ -27,7 +27,7 @@ import os
 import shutil
 
 import geopandas as gpd
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory
 
 from enderata.pipeline import run_pipeline, to_feature_collection
 from enderata.satellite.pipeline import bbox_from_center, detect_built_up_area
@@ -76,11 +76,27 @@ def load_demo():
 
 @app.route("/api/load-satellite", methods=["POST"])
 def load_satellite():
+    """Runs the built-up detection and also saves true_colour.png,
+    ndbi.png and ndvi.png into DATA_DIR (served by /data/<filename>
+    above) so the viewer can overlay the actual processed imagery, not
+    just the final mask -- lets a human judge whether ndbi_threshold/
+    ndvi_threshold (optionally overridden in the POST body) need
+    adjusting.
+    """
+    body = request.get_json(silent=True) or {}
+    ndbi_threshold = float(body.get("ndbi_threshold", 0.0))
+    ndvi_threshold = float(body.get("ndvi_threshold", 0.3))
+
     lat, lon = HUAMBO_CENTRE
     bbox = bbox_from_center(lat, lon, radius_km=1.6)
 
     try:
-        result = detect_built_up_area(bbox)
+        result = detect_built_up_area(
+            bbox,
+            ndbi_threshold=ndbi_threshold,
+            ndvi_threshold=ndvi_threshold,
+            image_dir=DATA_DIR,
+        )
     except RuntimeError as exc:
         return jsonify({"status": "error", "message": str(exc)}), 502
 
@@ -95,6 +111,9 @@ def load_satellite():
             "scene_id": result.scene_id,
             "scene_datetime": result.scene_datetime,
             "cloud_cover": result.cloud_cover,
+            "bounds_wgs84": list(result.bounds_wgs84),
+            "ndbi_threshold": result.ndbi_threshold,
+            "ndvi_threshold": result.ndvi_threshold,
         }
     )
 

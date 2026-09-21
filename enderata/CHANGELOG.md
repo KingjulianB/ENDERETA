@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.1.9
+- Add `enderata/satellite/visualize.py` (Pillow-based, no matplotlib):
+  renders the true-colour (percentile-stretched RGB) and NDBI/NDVI
+  index images to PNG. `detect_built_up_area(..., image_dir=...)`
+  saves them alongside the mask; both the CLI and
+  `/api/load-satellite` now do this by default.
+- Viewer: the satellite panel now shows a Leaflet layer-control
+  letting you toggle the built-up mask, the real true-colour image,
+  and the NDBI/NDVI heatmaps independently (georeferenced image
+  overlays, positioned from `bounds_wgs84`) -- so you can visually
+  compare the mask against the actual processed imagery instead of
+  only seeing the final polygons.
+- `ndbi_threshold`/`ndvi_threshold` are now adjustable: sliders in the
+  panel plus a "Recompute" button call `/api/load-satellite` again
+  with the chosen values (also exposed as `--ndbi-threshold`/
+  `--ndvi-threshold` on the CLI) -- lets the threshold be tuned by eye
+  against the real imagery without needing a code change each time.
+- Verified live: recomputing with different thresholds against the
+  real Huambo scene changes the polygon count as expected (199 -> 399
+  when loosening both thresholds), and all three PNGs render
+  correctly.
+
 ## 0.1.8
 - Wire the Sentinel-2 built-up module into both the CLI and the
   running add-on:

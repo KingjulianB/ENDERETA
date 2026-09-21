@@ -33,6 +33,11 @@ government-grade hosting exists.
   layer -- **not** building footprints, a density/extent signal only
   (10m/pixel). Requires outbound internet from wherever the add-on
   runs (new requirement -- every other feature works fully offline).
+  The panel that appears after loading it lets you toggle the true-
+  colour image and NDBI/NDVI heatmaps on top of the mask (georeferenced
+  overlays, not static screenshots) and adjust the NDBI/NDVI thresholds
+  with sliders + "Recompute" -- useful for visually judging the mask's
+  quality and tuning it without a code change.
   See `enderata/src/enderata/satellite/` docstrings for what this can
   and can't do, and `discrepancies.md` § Sovereign building/road
   detection model for why (NICFI's license ruled it out; no budget yet

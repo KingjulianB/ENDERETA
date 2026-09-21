@@ -64,40 +64,105 @@ loadDemoButton.addEventListener("click", () => {
     });
 });
 
-// Satellite built-up layer: a separate trigger and a separate Leaflet
-// layer from streets/buildings above -- it's a different kind of data
-// (a coarse density polygon, not a numbered address) and must never be
-// visually confused with them, hence the distinct colour/style and the
-// on-screen disclaimer.
-let satelliteLayer = null;
+// Satellite built-up layer: a separate trigger and separate Leaflet
+// layers from streets/buildings above -- coarse density polygons and
+// raw imagery, not numbered addresses, so they must never be visually
+// confused with them (distinct colour/style, on-screen disclaimer,
+// and their own layer-control group).
+let satelliteMaskLayer = null;
+let trueColourOverlay = null;
+let ndbiOverlay = null;
+let ndviOverlay = null;
+let satelliteLayerControl = null;
+
 const loadSatelliteButton = document.getElementById("load-satellite");
+const satellitePanel = document.getElementById("satellite-panel");
 const satelliteNote = document.getElementById("satellite-note");
+const ndbiSlider = document.getElementById("ndbi-threshold");
+const ndbiValue = document.getElementById("ndbi-threshold-value");
+const ndviSlider = document.getElementById("ndvi-threshold");
+const ndviValue = document.getElementById("ndvi-threshold-value");
+const recomputeButton = document.getElementById("recompute");
+
+ndbiSlider.addEventListener("input", () => {
+  ndbiValue.textContent = parseFloat(ndbiSlider.value).toFixed(2);
+});
+ndviSlider.addEventListener("input", () => {
+  ndviValue.textContent = parseFloat(ndviSlider.value).toFixed(2);
+});
+
+function fetchSatellite(ndbiThreshold, ndviThreshold) {
+  return fetch("api/load-satellite", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ndbi_threshold: ndbiThreshold, ndvi_threshold: ndviThreshold }),
+  })
+    .then((response) => (response.ok ? response.json() : Promise.reject(response)))
+    .then((result) => {
+      const imgBounds = L.latLngBounds(
+        [result.bounds_wgs84[1], result.bounds_wgs84[0]], // south, west
+        [result.bounds_wgs84[3], result.bounds_wgs84[2]] // north, east
+      );
+
+      [satelliteMaskLayer, trueColourOverlay, ndbiOverlay, ndviOverlay].forEach((layer) => {
+        if (layer) map.removeLayer(layer);
+      });
+      if (satelliteLayerControl) map.removeControl(satelliteLayerControl);
+
+      return fetch(`data/built_up.geojson?t=${Date.now()}`)
+        .then((response) => response.json())
+        .then((data) => {
+          satelliteMaskLayer = L.geoJSON(data, {
+            style: { color: "#b3541e", weight: 1, fillOpacity: 0.35 },
+          });
+          trueColourOverlay = L.imageOverlay(`data/true_colour.png?t=${Date.now()}`, imgBounds);
+          ndbiOverlay = L.imageOverlay(`data/ndbi.png?t=${Date.now()}`, imgBounds, { opacity: 0.85 });
+          ndviOverlay = L.imageOverlay(`data/ndvi.png?t=${Date.now()}`, imgBounds, { opacity: 0.85 });
+
+          satelliteMaskLayer.addTo(map);
+          satelliteLayerControl = L.control
+            .layers(
+              null,
+              {
+                "Built-up mask": satelliteMaskLayer,
+                "True colour (Sentinel-2)": trueColourOverlay,
+                "NDBI heatmap": ndbiOverlay,
+                "NDVI heatmap": ndviOverlay,
+              },
+              { collapsed: false }
+            )
+            .addTo(map);
+
+          satellitePanel.hidden = false;
+          satelliteNote.textContent =
+            `Scene ${result.scene_id} (${result.scene_datetime}, ` +
+            `${result.cloud_cover.toFixed(1)}% cloud). Coarse built-up signal ` +
+            "(~10m/pixel) -- NOT individual building footprints. Toggle layers " +
+            "below to compare the mask against the real imagery. See DOCS.md.";
+        });
+    });
+}
 
 loadSatelliteButton.addEventListener("click", () => {
   loadSatelliteButton.disabled = true;
   loadSatelliteButton.textContent = "Fetching Sentinel-2...";
-  fetch("api/load-satellite", { method: "POST" })
-    .then((response) => (response.ok ? response.json() : Promise.reject(response)))
-    .then((result) => {
-      if (satelliteLayer) map.removeLayer(satelliteLayer);
-      return fetch(`data/built_up.geojson?t=${Date.now()}`)
-        .then((response) => response.json())
-        .then((data) => {
-          satelliteLayer = L.geoJSON(data, {
-            style: { color: "#b3541e", weight: 1, fillOpacity: 0.35 },
-          }).addTo(map);
-          satelliteNote.hidden = false;
-          satelliteNote.textContent =
-            `Coarse built-up signal from Sentinel-2 scene ${result.scene_id} ` +
-            `(${result.scene_datetime}, ${result.cloud_cover.toFixed(1)}% cloud) -- ` +
-            "NOT individual building footprints. See DOCS.md.";
-        });
-    })
+  fetchSatellite(parseFloat(ndbiSlider.value), parseFloat(ndviSlider.value))
     .catch(() =>
       window.alert("ENDERETA: failed to load the satellite layer -- check the add-on log.")
     )
     .finally(() => {
       loadSatelliteButton.disabled = false;
       loadSatelliteButton.textContent = "Load satellite layer (Sentinel-2)";
+    });
+});
+
+recomputeButton.addEventListener("click", () => {
+  recomputeButton.disabled = true;
+  recomputeButton.textContent = "Recomputing...";
+  fetchSatellite(parseFloat(ndbiSlider.value), parseFloat(ndviSlider.value))
+    .catch(() => window.alert("ENDERETA: recompute failed -- check the add-on log."))
+    .finally(() => {
+      recomputeButton.disabled = false;
+      recomputeButton.textContent = "Recompute with these thresholds";
     });
 });
