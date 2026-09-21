@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.10
+- Fix: loading the satellite layer after loading demo data (or from
+  the default view) showed nothing -- `fetchSatellite()` never called
+  `map.fitBounds()`, so the map stayed wherever it was (often zoomed
+  tight on the tiny demo fixture) instead of jumping to the satellite
+  scene's real extent. Now calls `map.fitBounds(imgBounds)` after
+  adding the layers.
+- Add a "Clear demo data" button -- there was previously no way to
+  remove the demo buildings/streets layer from the map once loaded
+  (only re-load it). Removes it from the map view only; the underlying
+  `buildings.geojson`/`streets.geojson` files are untouched, so
+  "Load demo data" still works again afterwards.
+
 ## 0.1.9
 - Add `enderata/satellite/visualize.py` (Pillow-based, no matplotlib):
   renders the true-colour (percentile-stretched RGB) and NDBI/NDVI

@@ -14,7 +14,7 @@ const map = L.map("map", { attributionControl: false }).setView(
   14
 );
 
-const bounds = L.latLngBounds([]);
+let bounds = L.latLngBounds([]);
 const activeLayers = [];
 
 function loadLayer(url, style) {
@@ -48,6 +48,14 @@ function loadAllLayers() {
   });
 }
 
+function clearDemoLayers() {
+  // Only removes the layers from the map -- the underlying
+  // buildings.geojson/streets.geojson on disk are left alone, so
+  // "Load demo data" still works again afterwards.
+  activeLayers.splice(0).forEach((layer) => map.removeLayer(layer));
+  bounds = L.latLngBounds([]);
+}
+
 loadAllLayers();
 
 const loadDemoButton = document.getElementById("load-demo");
@@ -63,6 +71,9 @@ loadDemoButton.addEventListener("click", () => {
       loadDemoButton.textContent = "Load demo data";
     });
 });
+
+const clearDemoButton = document.getElementById("clear-demo");
+clearDemoButton.addEventListener("click", () => clearDemoLayers());
 
 // Satellite built-up layer: a separate trigger and separate Leaflet
 // layers from streets/buildings above -- coarse density polygons and
@@ -120,6 +131,7 @@ function fetchSatellite(ndbiThreshold, ndviThreshold) {
           ndviOverlay = L.imageOverlay(`data/ndvi.png?t=${Date.now()}`, imgBounds, { opacity: 0.85 });
 
           satelliteMaskLayer.addTo(map);
+          map.fitBounds(imgBounds, { padding: [24, 24] });
           satelliteLayerControl = L.control
             .layers(
               null,
