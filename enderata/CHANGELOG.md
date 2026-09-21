@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.14
+- Fix: the basemap's building/landcover/landuse/park polygons rendered
+  as a solid, over-saturated blob with dark cell-like seams on a real
+  HA run (screenshot) instead of the pale, readable style tested here.
+  Root cause: those layers used translucent fills (fillOpacity
+  0.35-0.5), and OpenMapTiles data for them is made of many small,
+  sometimes-overlapping polygons -- semi-transparent overlapping fills
+  stack (N overlaps of 0.35 opacity combine toward
+  1-(1-0.35)^N, reaching near-opaque within a few overlaps), which is
+  exactly what produced the blob. Switched every fill layer to
+  fillOpacity: 1 with pre-chosen pale colours instead, which can't
+  stack into something darker no matter how much the source geometry
+  overlaps. Verified in a real browser across multiple zoom levels
+  (zoomed out, default, zoomed in to individual buildings) and with
+  demo data loaded on top.
+
 ## 0.1.13
 - Add a real self-hosted basemap: `enderata/tileserver.py` reads
   vector tile blobs directly out of `tiles/huambo.mbtiles` (generated

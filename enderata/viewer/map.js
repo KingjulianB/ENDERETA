@@ -23,16 +23,26 @@ const map = L.map("map", { attributionControl: false }).setView(
 // points, etc.) that don't belong in a basemap. HIDDEN suppresses
 // those explicitly rather than leaving them to the default.
 const HIDDEN = { radius: 0, weight: 0, opacity: 0, fillOpacity: 0, fill: false, stroke: false };
+// Fill layers use fillOpacity: 1 with a pre-chosen light colour, NOT a
+// translucent colour -- OpenMapTiles' landcover/landuse/building layers
+// are made of many small, sometimes-overlapping polygons (real OSM
+// data), and semi-transparent fills stack: N overlapping 0.35-opacity
+// shapes combine toward 1-(1-0.35)^N, which reaches near-opaque within
+// a handful of overlaps. That produced a solid, over-saturated blob
+// with dark cell-like seams at polygon edges on a real run (screenshot)
+// -- an opacity-stacking artifact, not a one-off rendering glitch.
+// Opaque fills in colours already chosen to look pale sidestep it
+// entirely regardless of how much the source geometry overlaps.
 L.vectorGrid
   .protobuf("tiles/{z}/{x}/{y}.pbf", {
     maxNativeZoom: 14,
     vectorTileLayerStyles: {
-      water: { fill: true, fillColor: "#a8d3e6", fillOpacity: 0.6, stroke: false },
-      waterway: { color: "#a8d3e6", weight: 1.5 },
-      landcover: { fill: true, fillColor: "#dbe6cf", fillOpacity: 0.35, stroke: false },
-      landuse: { fill: true, fillColor: "#e6e2d6", fillOpacity: 0.35, stroke: false },
-      park: { fill: true, fillColor: "#cfe3c8", fillOpacity: 0.4, stroke: false },
-      building: { fill: true, fillColor: "#d9d3c8", fillOpacity: 0.5, stroke: true, color: "#bdb6a8", weight: 0.5 },
+      water: { fill: true, fillColor: "#bcdcec", fillOpacity: 1, stroke: false },
+      waterway: { color: "#bcdcec", weight: 1.5 },
+      landcover: { fill: true, fillColor: "#eef1e6", fillOpacity: 1, stroke: false },
+      landuse: { fill: true, fillColor: "#eee9dd", fillOpacity: 1, stroke: false },
+      park: { fill: true, fillColor: "#dcebd3", fillOpacity: 1, stroke: false },
+      building: { fill: true, fillColor: "#e4ded1", fillOpacity: 1, stroke: true, color: "#cfc7b8", weight: 0.5 },
       transportation: (properties) => ({
         color: "#ffffff",
         weight: properties.class === "motorway" || properties.class === "trunk" ? 2.5 : 1,
