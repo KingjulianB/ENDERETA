@@ -1,16 +1,14 @@
 """End-to-end orchestration: streets + buildings -> numbered, addressed buildings.
 
 Ties together street_assignment, ordering, postal_id and
-address_formatter. Postal-ID sequence numbers are assigned by sorting on
-building_id (a stable, deterministic order) rather than on array
-position or dict iteration order, so re-running the pipeline on the same
-input always yields the same postal IDs -- the "permanent, never
-reassigned" guarantee the business plan requires.
-
-Known limitation: sequencing by sorted building_id is only valid for a
-fixed, closed input set. A real deployment must replace it with a
-persistent counter (a DB sequence keyed by building_id) so that IDs
-survive new buildings being added later without shifting existing ones.
+address_formatter. Postal-ID sequence numbers come from a
+SequenceProvider (numbering/sequence.py): by default, InMemorySequenceProvider
+sorts building_id within this one run (deterministic, but only valid
+for a fixed, closed input set -- see its docstring). Pass a
+DbSequenceProvider (backed by the `postal_sequences` table) for a real,
+growing dataset instead, so that a building_id's postal ID -- once
+issued -- is never reassigned, even across separate runs that add new
+buildings.
 """
 
 from __future__ import annotations
@@ -22,6 +20,7 @@ import geopandas as gpd
 from enderata.numbering.address_formatter import format_address
 from enderata.numbering.ordering import BuildingOnStreet, assign_house_numbers
 from enderata.numbering.postal_id import generate_postal_id
+from enderata.numbering.sequence import InMemorySequenceProvider, SequenceProvider
 from enderata.numbering.street_assignment import Street, StreetIndex, assign_building_to_street
 
 
@@ -49,6 +48,7 @@ def run_pipeline(
     country_code: str,
     district_code: str,
     max_distance: float | None = None,
+    sequence_provider: SequenceProvider | None = None,
 ) -> list[AddressedBuilding]:
     streets = _streets_from_geodataframe(streets_gdf)
     street_names = {street.street_id: street.name for street in streets}
@@ -73,14 +73,15 @@ def run_pipeline(
     ]
     house_numbers = {hn.building_id: hn.number for hn in assign_house_numbers(on_street)}
 
-    # Deterministic, input-order-independent sequencing (see module docstring).
-    ordered_ids = sorted(assignments.keys())
+    if sequence_provider is None:
+        sequence_provider = InMemorySequenceProvider(list(assignments.keys()))
 
     results: list[AddressedBuilding] = []
-    for sequence, building_id in enumerate(ordered_ids, start=1):
+    for building_id in sorted(assignments.keys()):
         assignment = assignments[building_id]
         street_name = street_names[assignment.street_id]
         geometry = geometries[building_id]
+        sequence = sequence_provider.next_sequence(building_id)
         results.append(
             AddressedBuilding(
                 building_id=building_id,

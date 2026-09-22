@@ -24,7 +24,7 @@ government-grade hosting exists.
   hand against `tests/fixtures/synthetic_sample/` (5 fake buildings, 2
   fake streets) -- output confirmed correct (valid check digits, no
   duplicate IDs, address never contains the postal ID).
-- 34/34 automated tests pass, including an integration test that reruns
+- 38/38 automated tests pass, including an integration test that reruns
   the pipeline twice on the fixture and asserts identical postal IDs
   (the permanence guarantee) -- see `tests/integration/`.
 - The viewer now has a real self-hosted basemap: `tiles/luanda.mbtiles`
@@ -99,6 +99,20 @@ government-grade hosting exists.
   OSM has no mapped buildings, not a replacement for this path).
   `estimate-addresses` remains available as a fallback for areas with
   no real building data at all.
+- `estimate-addresses` and `real-addresses` now default to the real
+  Luanda municipality boundary (`aoi.py::load_luanda_aoi()`, an
+  irregular polygon via OSM/Nominatim geocoding) instead of a bbox
+  square -- verified against real data at full district scale:
+  40,082 real streets, 7,508 real OSM buildings, 7508/7508 addressed
+  in 82.2s, and in a real browser (the result now visibly traces
+  Luanda's actual coastline, not a rectangle). `--radius-km`/
+  `radius_km` still works as an explicit override to a bbox square.
+- `run_pipeline()`'s postal-ID sequencing can now be backed by a real,
+  persistent database instead of only sequencing in memory (see
+  `numbering/sequence.py`'s `DbSequenceProvider` and `db/session.py`) --
+  `cli.py` and both server routes use it automatically when the add-on's
+  Postgres is reachable, so an existing building's postal ID is never
+  reassigned even after new buildings are added in a later run.
 
 ## What is NOT done yet -- do not assume otherwise
 
@@ -151,15 +165,22 @@ government-grade hosting exists.
 - No Alembic migrations: schema is created with
   `Base.metadata.create_all()`, fine for a POC, not for evolving a live
   dataset.
-- The Luanda district AOI boundary and Open Buildings tile list are not
-  included -- you need to supply the district polygon before real
-  ingestion can run. Everything verified so far used a 5-building
-  synthetic fixture (near the old Huambo location -- see the fixture's
-  own README), NOT real Luanda data.
-- `pipeline.py` sequences postal IDs by sorting building IDs in memory
-  (documented in its docstring) -- valid only for a fixed, closed input
-  set. A persistent DB sequence is required before this can run against
-  a growing real dataset.
+- The Luanda district AOI boundary is now real (`aoi.py::load_luanda_aoi()`,
+  see above, added 0.1.20) for `estimate-addresses`/`real-addresses`.
+  `number-district`/`export-demo` still consume whatever GeoJSON they're
+  pointed at directly, independent of the AOI module. The Open Buildings
+  tile list is still not included (see `discrepancies.md` § Sovereign
+  building/road detection model).
+- `pipeline.py` still DEFAULTS to sequencing postal IDs by sorting
+  building IDs in memory -- valid only for a fixed, closed input set.
+  As of 0.1.20 this is no longer the only option: pass a
+  `DbSequenceProvider` (`numbering/sequence.py`) for a real, persistent
+  DB-backed sequence instead; `cli.py`/server routes now do this
+  automatically via `db/session.py` when the add-on's Postgres is
+  reachable, falling back to in-memory (logged) otherwise. The fallback
+  and the SQLAlchemy logic are verified (real SQLite, see `tests/
+  integration/test_persistent_sequence.py`) -- the actual connection to
+  the add-on's bundled Postgres is not yet confirmed on a real HA run.
 - `repository.yaml` and `config.yaml` now point at the real repo
   (`https://github.com/KingjulianB/ENDERETA`).
 

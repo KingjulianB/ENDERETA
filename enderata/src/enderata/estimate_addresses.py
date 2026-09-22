@@ -8,6 +8,14 @@ concrete building input available today. Every output building comes
 from `building_estimate.py`'s grid sample, not a verified footprint --
 callers (CLI, server route, viewer) must keep presenting this as an
 estimate, not ground truth.
+
+Took a bbox tuple until 2026-09-22, when `aoi.py` added a real Luanda
+boundary polygon. Sentinel-2/rasterio still fundamentally need a
+rectangular window, so `aoi.bounds` is used for that fetch -- but the
+built-up mask polygons are then clipped to the real `aoi` (not just
+the bbox) before sampling, and streets come from the real polygon
+directly (not a bbox rectangle), so both layers respect the actual
+district boundary, not just the satellite fetch's rectangular extent.
 """
 
 from __future__ import annotations
@@ -15,11 +23,30 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import geopandas as gpd
+from shapely.geometry import shape
+from shapely.geometry.base import BaseGeometry
 
 from enderata.ingestion.osm_streets import load_osm_streets
+from enderata.numbering.sequence import SequenceProvider
 from enderata.pipeline import AddressedBuilding, run_pipeline
 from enderata.satellite.building_estimate import estimate_building_points
 from enderata.satellite.pipeline import BuiltUpResult, detect_built_up_area
+
+
+def _clip_built_up_to_aoi(feature_collection: dict, aoi: BaseGeometry) -> dict:
+    clipped_features = []
+    for feature in feature_collection["features"]:
+        clipped_geom = shape(feature["geometry"]).intersection(aoi)
+        if clipped_geom.is_empty:
+            continue
+        clipped_features.append(
+            {
+                "type": "Feature",
+                "properties": feature["properties"],
+                "geometry": clipped_geom.__geo_interface__,
+            }
+        )
+    return {"type": "FeatureCollection", "features": clipped_features}
 
 
 @dataclass(frozen=True)
@@ -33,30 +60,40 @@ class EstimatedAddressingResult:
 
 
 def run_estimated_addressing(
-    bbox_wgs84: tuple[float, float, float, float],
+    aoi: BaseGeometry,
     country_code: str,
     district_code: str,
     spacing_m: float = 60.0,
     max_points: int = 1000,
     max_distance: float | None = 60.0,
+    sequence_provider: SequenceProvider | None = None,
 ) -> EstimatedAddressingResult:
     """Fetch a real Sentinel-2 built-up mask and real OSM streets for
-    `bbox_wgs84`, sample estimated building points inside the mask,
-    and run the numbering pipeline on them.
+    `aoi` (a shapely Polygon/MultiPolygon, EPSG:4326), sample estimated
+    building points inside the mask (clipped to `aoi`), and run the
+    numbering pipeline on them.
 
     `max_distance` (metres) drops estimated points too far from any
     real street to plausibly belong to it -- default matches
     `spacing_m` so isolated points at the built-up area's edges don't
-    get spuriously addressed.
+    get spuriously addressed. `sequence_provider` is passed straight
+    through to run_pipeline() -- see its docstring.
     """
+    bbox_wgs84 = aoi.bounds
     built_up = detect_built_up_area(bbox_wgs84)
-    streets_gdf = load_osm_streets(bbox_wgs84)
+    clipped_feature_collection = _clip_built_up_to_aoi(built_up.feature_collection, aoi)
+    streets_gdf = load_osm_streets(aoi)
     buildings_gdf = estimate_building_points(
-        built_up.feature_collection, spacing_m=spacing_m, max_points=max_points
+        clipped_feature_collection, spacing_m=spacing_m, max_points=max_points
     )
 
     addressed = run_pipeline(
-        buildings_gdf, streets_gdf, country_code, district_code, max_distance=max_distance
+        buildings_gdf,
+        streets_gdf,
+        country_code,
+        district_code,
+        max_distance=max_distance,
+        sequence_provider=sequence_provider,
     )
 
     return EstimatedAddressingResult(

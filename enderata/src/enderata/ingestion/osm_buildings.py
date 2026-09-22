@@ -12,6 +12,12 @@ many carrying existing addr:housenumber/addr:street/name tags (not
 used here -- this project assigns its own addresses, it doesn't copy
 OSM's).
 
+Took a bbox tuple until 2026-09-22, when `aoi.py` added a real Luanda
+boundary polygon -- switched to `ox.features_from_polygon` so buildings
+are clipped to the actual administrative boundary, not a bbox
+rectangle. A bbox tuple still works by wrapping it with
+`shapely.geometry.box(*bbox)` before calling.
+
 A polygon's centroid is used as its building_id's point location.
 Shapely computes this planar even in EPSG:4326 (degrees); for
 building-sized polygons the resulting distortion is negligible --
@@ -26,12 +32,13 @@ import warnings
 
 import geopandas as gpd
 import osmnx as ox
+from shapely.geometry.base import BaseGeometry
 
 
-def load_osm_buildings(bbox_wgs84: tuple[float, float, float, float]) -> gpd.GeoDataFrame:
-    """Fetch real OSM-mapped buildings within `bbox_wgs84` (west,
-    south, east, north) and return them shaped for `run_pipeline`."""
-    features = ox.features_from_bbox(bbox_wgs84, tags={"building": True})
+def load_osm_buildings(aoi: BaseGeometry) -> gpd.GeoDataFrame:
+    """Fetch real OSM-mapped buildings within `aoi` (a shapely Polygon/
+    MultiPolygon, EPSG:4326) and return them shaped for `run_pipeline`."""
+    features = ox.features_from_polygon(aoi, tags={"building": True})
 
     building_ids = [f"osm-{element}-{osm_id}" for element, osm_id in features.index]
     with warnings.catch_warnings():

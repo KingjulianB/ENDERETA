@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.1.20
+- **Real Luanda AOI boundary** (new `aoi.py`): `estimate-addresses` and
+  `real-addresses` (CLI + viewer buttons) now default to the real
+  Luanda municipality boundary polygon (`ox.geocode_to_gdf`, verified
+  as "Luanda, Municipality of Luanda, Luanda Province, Angola" -- an
+  irregular ~15km x 18km shape, not the previous `bbox_from_center`
+  square). `osm_streets.py`/`osm_buildings.py` switched to
+  `ox.graph_from_polygon`/`ox.features_from_polygon` so results are
+  clipped to the real boundary; the Sentinel-2 built-up mask (still
+  bbox-based -- rasterio needs a rectangular window) is clipped to the
+  real AOI afterward before sampling. `--radius-km`/`radius_km`
+  remains as an explicit override to a bbox square (used for the
+  large-radius stress tests). Verified end-to-end against the real,
+  full Luanda AOI: 40,082 real streets, 7,508 real OSM buildings,
+  7508/7508 addressed, 82.2s -- and in a real browser (the addressed
+  layer now visibly traces the city's actual irregular coastline
+  shape, not a square).
+- **Persistent postal-ID sequencing** (new `numbering/sequence.py`,
+  `db/session.py`, `PostalSequence` table in `db/models.py`):
+  `run_pipeline()` takes an optional `sequence_provider`; the previous
+  in-memory sorted-building-id behaviour (documented limitation --
+  reassigns existing IDs when a new building_id sorts earlier) stays
+  the default when no DB is available. `DbSequenceProvider`, backed by
+  the `postal_sequences` table, gives each building_id a number once
+  and never reassigns it, even across separate runs on a growing
+  dataset. Wired into `cli.py` (`number-district`, `estimate-addresses`,
+  `real-addresses`) and both server routes via `db/session.py`'s
+  `open_sequence_provider`, which connects to the add-on's real
+  Postgres (`config.py`'s `DATABASE_URL`) and falls back to in-memory
+  sequencing (logged, not a crash) if it's unreachable.
+- Verified for real: the actual bug (in-memory provider reassigning
+  IDs when a building sorts earlier) reproduced in a new test; the fix
+  verified against a real on-disk SQLite database across separate
+  sessions (no PostGIS-specific column is involved in this table, so
+  SQLite works for testing even though Postgres is the production
+  target) -- 4 new integration tests, 38/38 total passing. The
+  Postgres connection path itself (`db/session.py`) is exercised
+  end-to-end against a real SQLite URL override (success path) and the
+  real "no DB reachable" fallback (this dev environment has no
+  Postgres) -- but not yet checked against the add-on's actual bundled
+  Postgres on a real HA run.
+
 ## 0.1.19
 - New "Assign addresses (real OSM buildings)" button + `enderata
   real-addresses` CLI command. A second, preferred addressing path

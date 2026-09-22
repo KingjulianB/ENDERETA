@@ -26,6 +26,12 @@ enderata.estimate_addresses) through the numbering pipeline. Output is
 written to its own estimated_buildings.geojson/estimated_streets.geojson
 files (not buildings.geojson/streets.geojson) so it never gets confused
 with the synthetic demo fixture or overwrites it.
+
+/api/estimate-addresses and /api/real-addresses default to the real
+Luanda municipality boundary (enderata.aoi.load_luanda_aoi(), added
+2026-09-22) rather than a bbox square -- pass radius_km in the POST
+body to override with a bbox-derived square instead (used for the
+large-radius stress tests, see discrepancies.md/project_log.md).
 """
 
 from __future__ import annotations
@@ -36,13 +42,24 @@ import shutil
 
 import geopandas as gpd
 from flask import Flask, jsonify, request, send_from_directory
+from shapely.geometry import box
 
+from enderata.aoi import load_luanda_aoi
+from enderata.db.session import open_sequence_provider
 from enderata.estimate_addresses import run_estimated_addressing
 from enderata.pipeline import run_pipeline, to_feature_collection
 from enderata.real_addresses import run_real_addressing
 from enderata.satellite.pipeline import bbox_from_center, detect_built_up_area
 from enderata.satellite.sentinel2 import LUANDA_CENTRE
 from enderata.tileserver import get_tile
+
+
+def _resolve_aoi(body: dict):
+    radius_km = body.get("radius_km")
+    if radius_km is None:
+        return load_luanda_aoi()
+    lat, lon = LUANDA_CENTRE
+    return box(*bbox_from_center(lat, lon, float(radius_km)))
 
 VIEWER_DIR = os.environ.get("ENDERATA_VIEWER_DIR", "/app/viewer")
 DATA_DIR = os.environ.get("ENDERATA_DATA_DIR", "/data/export")
@@ -175,17 +192,26 @@ def estimate_addresses_route():
     max_points = int(body.get("max_points", 1000))
     max_distance = body.get("max_distance", 60.0)
     max_distance = float(max_distance) if max_distance is not None else None
-    radius_km = float(body.get("radius_km", 1.6))
+    aoi = _resolve_aoi(body)
 
-    lat, lon = LUANDA_CENTRE
-    bbox = bbox_from_center(lat, lon, radius_km=radius_km)
-
+    provider, session = open_sequence_provider("AO", "LUA")
     try:
         result = run_estimated_addressing(
-            bbox, "AO", "LUA", spacing_m=spacing_m, max_points=max_points, max_distance=max_distance
+            aoi,
+            "AO",
+            "LUA",
+            spacing_m=spacing_m,
+            max_points=max_points,
+            max_distance=max_distance,
+            sequence_provider=provider,
         )
+        if session is not None:
+            session.commit()
     except RuntimeError as exc:
         return jsonify({"status": "error", "message": str(exc)}), 502
+    finally:
+        if session is not None:
+            session.close()
 
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(os.path.join(DATA_DIR, "estimated_buildings.geojson"), "w", encoding="utf-8") as f:
@@ -216,15 +242,20 @@ def real_addresses_route():
     body = request.get_json(silent=True) or {}
     max_distance = body.get("max_distance", 100.0)
     max_distance = float(max_distance) if max_distance is not None else None
-    radius_km = float(body.get("radius_km", 1.6))
+    aoi = _resolve_aoi(body)
 
-    lat, lon = LUANDA_CENTRE
-    bbox = bbox_from_center(lat, lon, radius_km=radius_km)
-
+    provider, session = open_sequence_provider("AO", "LUA")
     try:
-        result = run_real_addressing(bbox, "AO", "LUA", max_distance=max_distance)
+        result = run_real_addressing(
+            aoi, "AO", "LUA", max_distance=max_distance, sequence_provider=provider
+        )
+        if session is not None:
+            session.commit()
     except RuntimeError as exc:
         return jsonify({"status": "error", "message": str(exc)}), 502
+    finally:
+        if session is not None:
+            session.close()
 
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(os.path.join(DATA_DIR, "real_buildings.geojson"), "w", encoding="utf-8") as f:

@@ -8,7 +8,7 @@ schema needs to evolve without dropping data.
 from __future__ import annotations
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Column, Float, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, relationship
 
 
@@ -50,3 +50,23 @@ class BuildingAddress(Base):
     display_address = Column(String, nullable=False)
 
     building = relationship("Building", back_populates="address")
+
+
+class PostalSequence(Base):
+    """Persistent postal-ID sequence counter, keyed by building_id --
+    see numbering/sequence.py's DbSequenceProvider. No geometry column
+    (unlike Street/Building/BuildingAddress above), so this table can
+    be created and tested against plain SQLite, not just PostGIS.
+    """
+
+    __tablename__ = "postal_sequences"
+
+    building_id = Column(String, primary_key=True)
+    country_code = Column(String, nullable=False)
+    district_code = Column(String, nullable=False)
+    sequence_number = Column(Integer, nullable=False)
+    assigned_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("country_code", "district_code", "sequence_number"),
+    )

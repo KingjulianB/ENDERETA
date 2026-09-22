@@ -19,12 +19,24 @@ import shutil
 from pathlib import Path
 
 import geopandas as gpd
+from shapely.geometry import box
 
+from enderata.aoi import load_luanda_aoi
+from enderata.db.session import open_sequence_provider
 from enderata.estimate_addresses import run_estimated_addressing
 from enderata.pipeline import run_pipeline, to_feature_collection
 from enderata.real_addresses import run_real_addressing
 from enderata.satellite.pipeline import bbox_from_center, detect_built_up_area
 from enderata.satellite.sentinel2 import LUANDA_CENTRE
+
+
+def _resolve_aoi(lat: float, lon: float, radius_km: float | None):
+    """The real Luanda AOI polygon by default; `--radius-km` overrides
+    with a bbox-derived square instead (used for the large-radius
+    stress tests -- see discrepancies.md/project_log.md)."""
+    if radius_km is None:
+        return load_luanda_aoi()
+    return box(*bbox_from_center(lat, lon, radius_km))
 
 
 def export_demo(buildings_path: str, streets_path: str, out_dir: str) -> None:
@@ -45,9 +57,21 @@ def number_district(
     buildings_gdf = gpd.read_file(buildings_path)
     streets_gdf = gpd.read_file(streets_path)
 
-    addressed = run_pipeline(
-        buildings_gdf, streets_gdf, country_code, district_code, max_distance=max_distance
-    )
+    provider, session = open_sequence_provider(country_code, district_code)
+    try:
+        addressed = run_pipeline(
+            buildings_gdf,
+            streets_gdf,
+            country_code,
+            district_code,
+            max_distance=max_distance,
+            sequence_provider=provider,
+        )
+        if session is not None:
+            session.commit()
+    finally:
+        if session is not None:
+            session.close()
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -103,7 +127,7 @@ def satellite_builtup(
 def estimate_addresses(
     lat: float,
     lon: float,
-    radius_km: float,
+    radius_km: float | None,
     out_dir: str,
     country_code: str,
     district_code: str,
@@ -111,13 +135,26 @@ def estimate_addresses(
     max_points: int,
     max_distance: float | None,
 ) -> None:
-    bbox = bbox_from_center(lat, lon, radius_km)
+    aoi = _resolve_aoi(lat, lon, radius_km)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    result = run_estimated_addressing(
-        bbox, country_code, district_code, spacing_m=spacing_m, max_points=max_points, max_distance=max_distance
-    )
+    provider, session = open_sequence_provider(country_code, district_code)
+    try:
+        result = run_estimated_addressing(
+            aoi,
+            country_code,
+            district_code,
+            spacing_m=spacing_m,
+            max_points=max_points,
+            max_distance=max_distance,
+            sequence_provider=provider,
+        )
+        if session is not None:
+            session.commit()
+    finally:
+        if session is not None:
+            session.close()
 
     with (out / "buildings.geojson").open("w", encoding="utf-8") as f:
         json.dump(to_feature_collection(result.addressed), f)
@@ -139,17 +176,26 @@ def estimate_addresses(
 def real_addresses(
     lat: float,
     lon: float,
-    radius_km: float,
+    radius_km: float | None,
     out_dir: str,
     country_code: str,
     district_code: str,
     max_distance: float | None,
 ) -> None:
-    bbox = bbox_from_center(lat, lon, radius_km)
+    aoi = _resolve_aoi(lat, lon, radius_km)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    result = run_real_addressing(bbox, country_code, district_code, max_distance=max_distance)
+    provider, session = open_sequence_provider(country_code, district_code)
+    try:
+        result = run_real_addressing(
+            aoi, country_code, district_code, max_distance=max_distance, sequence_provider=provider
+        )
+        if session is not None:
+            session.commit()
+    finally:
+        if session is not None:
+            session.close()
 
     with (out / "buildings.geojson").open("w", encoding="utf-8") as f:
         json.dump(to_feature_collection(result.addressed), f)
@@ -211,7 +257,12 @@ def main() -> None:
     )
     estimate_parser.add_argument("--lat", type=float, default=LUANDA_CENTRE[0])
     estimate_parser.add_argument("--lon", type=float, default=LUANDA_CENTRE[1])
-    estimate_parser.add_argument("--radius-km", type=float, default=1.6)
+    estimate_parser.add_argument(
+        "--radius-km",
+        type=float,
+        default=None,
+        help="Override: use a bbox square of this radius instead of the real Luanda AOI polygon",
+    )
     estimate_parser.add_argument("--out", default="/data/export")
     estimate_parser.add_argument("--country", default="AO")
     estimate_parser.add_argument("--district", default="LUA")
@@ -228,7 +279,12 @@ def main() -> None:
     )
     real_parser.add_argument("--lat", type=float, default=LUANDA_CENTRE[0])
     real_parser.add_argument("--lon", type=float, default=LUANDA_CENTRE[1])
-    real_parser.add_argument("--radius-km", type=float, default=1.6)
+    real_parser.add_argument(
+        "--radius-km",
+        type=float,
+        default=None,
+        help="Override: use a bbox square of this radius instead of the real Luanda AOI polygon",
+    )
     real_parser.add_argument("--out", default="/data/export")
     real_parser.add_argument("--country", default="AO")
     real_parser.add_argument("--district", default="LUA")

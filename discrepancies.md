@@ -157,8 +157,19 @@ belongs in the current `dayX_objectives.md` instead.
   coarse sovereignty-aligned signal, with its precision limits
   documented rather than overstated.
 
+---
+
+## Resolved
+
+*(see `project_log.md`'s "Resolved" table for the full list of fixed
+build/runtime issues — build.yaml/base image, bashio, pg_ctl
+permissions, missing postgis package, OSM tile 403s, the accidental
+screenshot commit. Those were concrete build/runtime errors with a
+single correct fix, not open questions needing a human judgment call,
+so they're tracked there rather than duplicated here.)*
+
 ### Real Luanda AOI boundary (renamed from "Real Huambo AOI boundary",
-### pilot district changed 2026-09-22)
+### pilot district changed 2026-09-22) — RESOLVED 2026-09-22
 
 - **What I tried:** built and verified the entire numbering pipeline
   (street assignment → house numbering → postal ID → address
@@ -170,35 +181,45 @@ belongs in the current `dayX_objectives.md` instead.
   boundary) that defines the POC's area of interest, so
   `ingestion/open_buildings.py` and `ingestion/osm_streets.py` have
   something real to clip against.
-- **Status:** not provided. Nothing in this project has touched real
-  Luanda geodata yet (beyond the Sentinel-2/vector-tile verification
-  already done) — every numbering-pipeline "it works" claim so far is
-  scoped to the synthetic fixture only.
-- **2026-09-22, partial progress (not a resolution):** `ingestion/
-  osm_streets.py` rewritten and verified against real Luanda streets
-  (2305 edges via osmnx/Overpass), and a new "estimate addresses"
-  feature (`estimate_addresses.py`, viewer button "Assign addresses
-  (estimated)") runs the full pipeline against real streets + building
-  points grid-sampled inside the Sentinel-2 built-up mask — see
-  `project_log.md` Resolved #14. This still does NOT close this item:
-  there's still no real AOI boundary polygon (the bbox from
-  `bbox_from_center` is a rough circle-ish square, not a real district
-  boundary) and no real building footprints (Open Buildings remains
-  unwired — see the SpaceNet/Open Buildings item above). The estimated
-  points are an explicit stand-in, documented as such everywhere they
-  surface (module docstrings, CLI output, viewer disclaimer).
-- **2026-09-22, further progress (still not a full resolution):**
-  `ingestion/osm_buildings.py` + a new "Assign addresses (real OSM
-  buildings)" path (`real_addresses.py`) now provides REAL building
-  footprints where OSM has mapped them (749 verified in the default
-  AOI) — see the Sovereign building/road detection model section
-  above. This narrows the gap significantly (real buildings, not
-  estimates, wherever OSM coverage exists) but doesn't close this item
-  either: the AOI is still just a bbox, not a real district polygon,
-  and OSM coverage itself is incomplete (Google Open Buildings, not
-  yet wired, would be the more exhaustive source).
+- **2026-09-22, partial progress:** `ingestion/osm_streets.py` rewritten
+  and verified against real Luanda streets (2305 edges via osmnx/
+  Overpass), and a new "estimate addresses" feature
+  (`estimate_addresses.py`) runs the full pipeline against real streets
+  + building points grid-sampled inside the Sentinel-2 built-up mask —
+  see `project_log.md` Resolved #14. Still didn't close this item: no
+  real AOI boundary polygon yet, no real building footprints.
+- **2026-09-22, further progress:** `ingestion/osm_buildings.py` + a new
+  "Assign addresses (real OSM buildings)" path (`real_addresses.py`)
+  added REAL building footprints where OSM has mapped them (749
+  verified). Narrowed the gap but still didn't close this item: the AOI
+  was still just a bbox, not a real district polygon.
+- **2026-09-22, resolution:** new `aoi.py::load_luanda_aoi()`, via
+  `ox.geocode_to_gdf("Luanda, Angola")` (same OSM/Nominatim ecosystem
+  already used for streets/buildings) — returns a real, single,
+  irregular Polygon: "Luanda, Municipality of Luanda, Luanda Province,
+  Angola", bounds (13.1732, -8.9208) to (13.3109, -8.7592), ~15km x
+  18km, verified NOT a square. `osm_streets.py`/`osm_buildings.py`
+  switched from `graph_from_bbox`/`features_from_bbox` to
+  `graph_from_polygon`/`features_from_polygon` so results are clipped
+  to the real boundary; the Sentinel-2 mask (still bbox-based, rasterio
+  needs a rectangular window) is clipped to the real polygon afterward,
+  before sampling. `estimate-addresses`/`real-addresses` (CLI + viewer
+  buttons) now default to this real AOI; `--radius-km`/`radius_km`
+  stays available as an explicit bbox-square override (used for the
+  earlier large-radius stress tests). Verified end-to-end at full
+  district scale (40,082 real streets, 7,508 real OSM buildings,
+  7508/7508 addressed, 82.2s) and in a real browser — the addressed
+  layer visibly traces Luanda's actual irregular coastline, not a
+  rectangle.
+- **Status:** RESOLVED for the two real-data addressing paths
+  (`estimate-addresses`, `real-addresses`). `number-district`/
+  `export-demo` still take whatever GeoJSON they're pointed at
+  directly, unaffected either way. OSM building coverage inside the
+  real AOI is still incomplete (see the Sovereign building/road
+  detection model section) — that's a separate, still-open limitation,
+  not this one.
 
-### Persistent postal-ID sequencing
+### Persistent postal-ID sequencing — RESOLVED 2026-09-22
 
 - **What I tried:** `pipeline.py` currently assigns each building's
   postal-ID sequence number by sorting `building_id` in memory and
@@ -211,17 +232,32 @@ belongs in the current `dayX_objectives.md` instead.
   number and nothing already issued ever shifts), versus some other
   scheme. This is a design decision, not something to infer from the
   code.
-- **Status:** documented as a known limitation in `pipeline.py`'s
-  module docstring; not blocking the current fixture-scale work, but
-  blocking before any real/growing dataset is numbered for real.
-
----
-
-## Resolved
-
-*(see `project_log.md`'s "Resolved" table for the full list of fixed
-build/runtime issues — build.yaml/base image, bashio, pg_ctl
-permissions, missing postgis package, OSM tile 403s, the accidental
-screenshot commit. Those were concrete build/runtime errors with a
-single correct fix, not open questions needing a human judgment call,
-so they're tracked there rather than duplicated here.)*
+- **2026-09-22, resolution:** new `numbering/sequence.py`
+  (`SequenceProvider` protocol; `InMemorySequenceProvider` = today's
+  behaviour, unchanged default; `DbSequenceProvider` = a real
+  persistent counter, get-or-assign against a `postal_sequences` table
+  keyed by building_id, unique per (country_code, district_code)).
+  `pipeline.py::run_pipeline` takes an optional `sequence_provider`.
+  New `db/session.py::open_sequence_provider` connects to the add-on's
+  real Postgres (`config.py`'s `DATABASE_URL`) and creates the table if
+  missing; on any failure it logs a warning and returns `(None, None)`
+  so callers fall back to the in-memory default instead of crashing.
+  Wired into `cli.py` (`number-district`, `estimate-addresses`,
+  `real-addresses`) and both server routes.
+- **Verification:** the actual bug (in-memory provider reassigning an
+  existing ID when a new building_id sorts earlier) was reproduced in a
+  new test first, then the fix verified against a real on-disk SQLite
+  database across two separate sessions/runs (no PostGIS-specific
+  column is involved in `postal_sequences`, so SQLite works for testing
+  even though Postgres is the production target) — 4 new integration
+  tests, `tests/integration/test_persistent_sequence.py`.
+  `open_sequence_provider`'s success path was also verified end-to-end
+  against a real SQLite `DATABASE_URL` override, and its fallback path
+  against the real "no DB reachable" case (this dev environment has no
+  Postgres).
+- **Status:** RESOLVED as a design + implementation, with a
+  known-and-logged fallback when no DB is reachable. NOT yet confirmed
+  against the add-on's actual bundled Postgres on a real HA Supervisor
+  run — `run.sh` already starts Postgres before the server/CLI in that
+  environment, so it should just work, but that specific path is
+  unverified until checked there directly.

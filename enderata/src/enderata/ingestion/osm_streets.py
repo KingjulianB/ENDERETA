@@ -9,12 +9,20 @@ street names (UTF-8 verified byte-correct -- an apparent mojibake in
 one shell's echo turned out to be a terminal display artifact, not
 actual data corruption). ~54% of edges have no OSM `name` tag (normal
 for minor/service ways); those fall back to "Unnamed street".
+
+Took a bbox tuple until 2026-09-22, when `aoi.py` added a real Luanda
+boundary polygon -- switched to `ox.graph_from_polygon` so streets are
+clipped to the actual administrative boundary, not a bbox rectangle
+that includes area outside the district (or excludes area inside it,
+for a non-square district like Luanda). A bbox tuple still works by
+wrapping it with `shapely.geometry.box(*bbox)` before calling.
 """
 
 from __future__ import annotations
 
 import geopandas as gpd
 import osmnx as ox
+from shapely.geometry.base import BaseGeometry
 
 UNNAMED = "Unnamed street"
 
@@ -27,10 +35,10 @@ def _clean_name(value) -> str:
     return str(value)
 
 
-def load_osm_streets(bbox_wgs84: tuple[float, float, float, float]) -> gpd.GeoDataFrame:
-    """Fetch drivable streets within `bbox_wgs84` (west, south, east,
-    north) and return them shaped for `run_pipeline`."""
-    graph = ox.graph_from_bbox(bbox_wgs84, network_type="drive")
+def load_osm_streets(aoi: BaseGeometry) -> gpd.GeoDataFrame:
+    """Fetch drivable streets within `aoi` (a shapely Polygon/
+    MultiPolygon, EPSG:4326) and return them shaped for `run_pipeline`."""
+    graph = ox.graph_from_polygon(aoi, network_type="drive")
     _, edges = ox.graph_to_gdfs(graph)
 
     streets = gpd.GeoDataFrame(
