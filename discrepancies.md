@@ -59,8 +59,18 @@ belongs in the current `dayX_objectives.md` instead.
   as "built-up", a known NDBI limitation, not fixed here). This is a
   coarse density/extent signal, not a building-footprint replacement —
   documented plainly in the module docstrings.
-- **Status:** SpaceNet path still blocked on imagery budget/licensing.
-  Sentinel-2 NDBI/NDVI path built, tested (4 new unit tests, 20/20
+- **2026-09-22, checked OSM editor imagery layers (Bing/Esri/Maxar via
+  the user's OSM account) as another candidate:** ruled out, same
+  family of problem as NICFI but stricter. Bing's grant to OSM is
+  explicitly "non-commercial online editor application" use only;
+  Esri's is "trace features and validate edits" only; Maxar's was
+  "only to trace, and validate edits that must be contributed back to
+  OSM" (and Maxar revoked this access in July 2023 anyway). None
+  permit bulk download or reuse outside the OSM editor -- an OSM
+  account does not unlock anything usable here.
+- **Status:** SpaceNet path still blocked on imagery budget/licensing
+  (checked and ruled out: NICFI, OSM editor imagery layers). Sentinel-2
+  NDBI/NDVI path built, tested (4 new unit tests, 20/20
   total passing), and verified against real data — usable today as a
   free, legally-clean, coarse sovereignty-aligned signal, with its
   precision limits documented rather than overstated.
