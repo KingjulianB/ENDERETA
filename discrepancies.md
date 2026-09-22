@@ -12,7 +12,40 @@ belongs in the current `dayX_objectives.md` instead.
 
 ## Open
 
-### Sovereign building/road detection model — imagery gap (blocks implementation)
+### Sovereign building/road detection model — CLOSED for now, NDBI/NDVI is the answer
+
+- **2026-09-22, final decision after trying to act on the Luanda
+  imagery opening:** attempted to actually use SpaceNet 6 (the model
+  path decided 2026-09-20, below) against Luanda's real OpenAerialMap
+  imagery. Found a hard technical blocker verified directly in the
+  winning solution's own README: *"input to all of my segmentation
+  networks is SAR image with 4 channels"* — SpaceNet 6 was trained on
+  Capella SAR + Maxar optical fusion (Rotterdam), and its models take
+  SAR as input, not plain RGB. Not fixable by more effort; the wrong
+  model family for optical-only imagery. Also surfaced a broader
+  licensing concern common to the whole SpaceNet family: the training
+  dataset is CC BY-SA 4.0, and a credible source states trained model
+  weights are treated as a derivative carrying the ShareAlike
+  obligation, independent of the training/inference code's own
+  (Apache 2.0) license. Searched for a non-SpaceNet alternative
+  (optical, building-specific, clearly licensed, well-documented) --
+  none exists: Microsoft/Google publish only their output data (ODbL),
+  never model weights; Hugging Face's building-segmentation models are
+  small, undocumented individual projects with unclear training-data
+  provenance (arguably a worse, just less visible, licensing risk than
+  SpaceNet); Prithvi (NASA/IBM, genuinely open, well-documented) is a
+  general Earth-observation foundation model, not building-specific,
+  and runs at Sentinel/Landsat resolution (10-30m) -- would need a full
+  fine-tune with labelled data to be useful here, which is the same
+  training-data problem this whole detour was trying to avoid.
+- **Decision:** stop pursuing a pretrained building-detection model.
+  The Sentinel-2 NDBI/NDVI built-up signal (free, legally clean,
+  already built and shipping in the add-on) is the sovereignty-aligned
+  answer for now. Revisit if/when a clearly-licensed, building-specific
+  optical model becomes available, or budget opens up real high-res
+  licensed imagery.
+
+### Sovereign building/road detection model — history (closed above)
 
 - **Context:** to reduce dependency on Google Open Buildings (data-
   sovereignty argument central to the business plan's government
