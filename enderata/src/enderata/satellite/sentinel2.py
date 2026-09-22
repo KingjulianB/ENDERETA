@@ -21,14 +21,16 @@ Huambo at any usable resolution/licence, see discrepancies.md.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
 import rasterio
 from pystac_client import Client
-from rasterio.transform import array_bounds
+from rasterio.transform import from_bounds as transform_from_bounds
 from rasterio.warp import transform_bounds
-from rasterio.windows import from_bounds
+from rasterio.windows import bounds as window_bounds
+from rasterio.windows import from_bounds as window_from_bounds
 
 CATALOG_URL = "https://earth-search.aws.element84.com/v1"
 COLLECTION = "sentinel-2-l2a"
@@ -74,24 +76,70 @@ def find_recent_scene(bbox_wgs84: tuple[float, float, float, float], max_cloud_c
     return items[0]
 
 
-def read_bands(item, bbox_wgs84: tuple[float, float, float, float], out_size: int = 600) -> SceneBands:
+def _compute_out_shape(
+    bbox_wgs84: tuple[float, float, float, float], target_resolution_m: float = 10.0, max_dimension: int = 2000
+) -> tuple[int, int]:
+    """(height_px, width_px) matching `bbox_wgs84`'s real aspect ratio
+    at roughly `target_resolution_m` (Sentinel-2's own native
+    resolution, 10m), capped so neither side exceeds `max_dimension`
+    (scaling both sides down together, so the aspect ratio -- and
+    therefore the mask's real-world shape -- is preserved even when
+    capped). Until 2026-09-22 this was a single fixed `out_size=600`
+    forcing every bbox into a square raster regardless of its real
+    shape -- fine near Huambo/Luanda's small original 1.6km-radius test
+    AOI (roughly square), badly wrong for the real Luanda municipality
+    boundary (~15km x 18km, see aoi.py) -- see module docstring.
+    """
+    west, south, east, north = bbox_wgs84
+    centre_lat = (south + north) / 2
+    width_m = (east - west) * 111_320 * max(math.cos(math.radians(centre_lat)), 0.01)
+    height_m = (north - south) * 111_320
+
+    width_px = max(1, round(width_m / target_resolution_m))
+    height_px = max(1, round(height_m / target_resolution_m))
+
+    longer_side = max(width_px, height_px)
+    if longer_side > max_dimension:
+        scale = max_dimension / longer_side
+        width_px = max(1, round(width_px * scale))
+        height_px = max(1, round(height_px * scale))
+    return height_px, width_px
+
+
+def read_bands(
+    item,
+    bbox_wgs84: tuple[float, float, float, float],
+    out_shape: tuple[int, int] | None = None,
+    max_dimension: int = 2000,
+) -> SceneBands:
     """Windowed-read red/green/blue/nir/swir16 for `bbox_wgs84` from a
     STAC item.
 
-    `out_size` controls the output raster's side length in pixels (all
-    bands are resampled to this common grid, since swir16 ships at 20m
-    native resolution vs 10m for the others).
+    `out_shape` is (height_px, width_px); all bands are resampled to
+    this common grid (swir16 ships at 20m native resolution vs 10m for
+    the others). Defaults to `_compute_out_shape(bbox_wgs84, max_dimension=max_dimension)`
+    -- sized to the bbox's real aspect ratio at ~10m/pixel, not forced
+    square; `max_dimension` caps memory/processing for a large AOI
+    (ignored if `out_shape` is given explicitly).
     """
+    if out_shape is None:
+        out_shape = _compute_out_shape(bbox_wgs84, max_dimension=max_dimension)
+    height_px, width_px = out_shape
 
     def _read(asset_key: str) -> tuple[np.ndarray, rasterio.Affine, str, tuple]:
         href = item.assets[asset_key].href
         with rasterio.open(href) as ds:
             bounds_proj = transform_bounds("EPSG:4326", ds.crs, *bbox_wgs84)
-            window = from_bounds(*bounds_proj, transform=ds.transform)
-            arr = ds.read(1, window=window, out_shape=(out_size, out_size)).astype("float32")
-            transform = ds.window_transform(window)
+            window = window_from_bounds(*bounds_proj, transform=ds.transform)
+            arr = ds.read(1, window=window, out_shape=(height_px, width_px)).astype("float32")
+            # The window's real-world bounds don't depend on out_shape --
+            # computing them straight from the window (not from a
+            # native-resolution transform combined with the resampled
+            # array's pixel count, the previous approach) is what
+            # actually fixes the bounds-mismatch bug described above.
+            window_bounds_proj = window_bounds(window, ds.transform)
+            transform = transform_from_bounds(*window_bounds_proj, width_px, height_px)
             crs = ds.crs.to_string()
-            window_bounds_proj = array_bounds(out_size, out_size, transform)
         return arr, transform, crs, window_bounds_proj
 
     red, transform, crs, window_bounds_proj = _read("red")

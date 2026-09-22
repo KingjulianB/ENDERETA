@@ -93,13 +93,13 @@ def number_district(
 def satellite_builtup(
     lat: float,
     lon: float,
-    radius_km: float,
+    radius_km: float | None,
     out_dir: str,
     max_cloud_cover: float,
     ndbi_threshold: float,
     ndvi_threshold: float,
 ) -> None:
-    bbox = bbox_from_center(lat, lon, radius_km)
+    bbox = _resolve_aoi(lat, lon, radius_km).bounds
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -259,7 +259,12 @@ def main() -> None:
     )
     satellite_parser.add_argument("--lat", type=float, default=LUANDA_CENTRE[0])
     satellite_parser.add_argument("--lon", type=float, default=LUANDA_CENTRE[1])
-    satellite_parser.add_argument("--radius-km", type=float, default=1.6)
+    satellite_parser.add_argument(
+        "--radius-km",
+        type=float,
+        default=None,
+        help="Override: use a bbox square of this radius instead of the real Luanda AOI polygon",
+    )
     satellite_parser.add_argument("--out", default="/data/export")
     satellite_parser.add_argument("--max-cloud-cover", type=float, default=20.0)
     satellite_parser.add_argument("--ndbi-threshold", type=float, default=0.0)

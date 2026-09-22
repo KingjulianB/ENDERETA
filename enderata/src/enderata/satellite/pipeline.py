@@ -44,7 +44,7 @@ class BuiltUpResult:
 def detect_built_up_area(
     bbox_wgs84: tuple[float, float, float, float],
     max_cloud_cover: float = 20.0,
-    out_size: int = 600,
+    max_dimension: int = 2000,
     ndbi_threshold: float = 0.0,
     ndvi_threshold: float = 0.3,
     image_dir: str | None = None,
@@ -54,6 +54,13 @@ def detect_built_up_area(
     plus which real scene it came from (raises RuntimeError if no scene
     is found -- see sentinel2.find_recent_scene).
 
+    `max_dimension` caps the output raster's longer side in pixels
+    (both sides scaled down together, preserving the bbox's real aspect
+    ratio -- see sentinel2._compute_out_shape) so a large AOI (the full
+    real Luanda municipality, ~15km x 18km, not just the original small
+    test radius) doesn't blow up memory/processing time; ~10m/pixel
+    (Sentinel-2's native resolution) is used up to that cap.
+
     If `image_dir` is given, also saves `true_colour.png`, `ndbi.png`
     and `ndvi.png` there (georeferenced by `bounds_wgs84` in the
     result, for use as a Leaflet imageOverlay) so a human can inspect
@@ -61,7 +68,7 @@ def detect_built_up_area(
     `ndbi_threshold`/`ndvi_threshold` need adjusting.
     """
     item = find_recent_scene(bbox_wgs84, max_cloud_cover=max_cloud_cover)
-    bands = read_bands(item, bbox_wgs84, out_size=out_size)
+    bands = read_bands(item, bbox_wgs84, max_dimension=max_dimension)
 
     ndbi = compute_ndbi(bands.swir16, bands.nir)
     ndvi = compute_ndvi(bands.nir, bands.red)

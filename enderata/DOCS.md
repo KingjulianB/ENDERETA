@@ -24,7 +24,7 @@ government-grade hosting exists.
   hand against `tests/fixtures/synthetic_sample/` (5 fake buildings, 2
   fake streets) -- output confirmed correct (valid check digits, no
   duplicate IDs, address never contains the postal ID).
-- 51/51 automated tests pass, including an integration test that reruns
+- 55/55 automated tests pass, including an integration test that reruns
   the pipeline twice on the fixture and asserts identical postal IDs
   (the permanence guarantee) -- see `tests/integration/`.
 - The viewer now has a real self-hosted basemap: `tiles/luanda.mbtiles`
@@ -48,6 +48,17 @@ government-grade hosting exists.
   overlays, not static screenshots) and adjust the NDBI/NDVI thresholds
   with sliders + "Recompute" -- useful for visually judging the mask's
   quality and tuning it without a code change.
+  Defaults to the real full Luanda AOI (`aoi.py`, added 0.1.22 -- was a
+  fixed 1.6km radius before), verified end-to-end: 24,435 built-up
+  polygons across the whole municipality, 17.8s. `read_bands`
+  (`satellite/sentinel2.py`) now sizes its output raster to the bbox's
+  real aspect ratio at ~10m/pixel (`_compute_out_shape`, capped at
+  `max_dimension` pixels on the longer side) instead of forcing every
+  bbox into a square -- fine for the old near-square test radius, would
+  have badly distorted a ~15km x 18km AOI. This also fixed the root
+  cause of `bounds_wgs84` previously coming back roughly double the
+  requested bbox (an internally inconsistent native-resolution-transform
+  + resampled-array-shape pairing) -- now matches to ~0.001°.
   See `enderata/src/enderata/satellite/` docstrings for what this can
   and can't do, and `discrepancies.md` § Sovereign building/road
   detection model for why (NICFI's license ruled it out; no budget yet

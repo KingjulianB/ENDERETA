@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.1.22
+- **Built-up mask now covers all of Luanda** (user request: "je veux
+  que le buld up mask soit sur tout luanda"). "Load satellite layer"
+  (viewer button, `POST /api/load-satellite`) and `satellite-builtup`
+  (CLI) now default to the real Luanda AOI polygon (same `aoi.py` used
+  by `estimate-addresses`/`real-addresses`) instead of a fixed 1.6km
+  radius; `radius_km` stays available as an explicit bbox-square
+  override.
+- Fixing the scope required fixing a real bug first: `read_bands`
+  (`satellite/sentinel2.py`) forced every bbox into a SQUARE raster
+  (`out_shape=(out_size, out_size)`, previously fixed at 600x600) --
+  harmless for the old near-square 1.6km test AOI, but the real Luanda
+  municipality is ~15km x 18km, so a forced square would have badly
+  distorted the mask's aspect ratio. Also found and fixed the root
+  cause of an earlier-documented oddity (returned `bounds_wgs84` being
+  roughly double the requested bbox, noted but not explained in an
+  earlier session): the bounds were computed from a NATIVE-resolution
+  transform combined with the RESAMPLED array's pixel count -- an
+  internally inconsistent pairing. New `_compute_out_shape` sizes the
+  output to the bbox's real aspect ratio at ~10m/pixel (Sentinel-2's
+  native resolution), capped at `max_dimension` (default 2000px on the
+  longer side, both sides scaled together so aspect ratio is
+  preserved); bounds are now computed directly from the read window's
+  real geographic extent, independent of how it's resampled.
+- Verified for real: requested vs. returned bbox now match to ~0.001°
+  (was ~2x off before), full-Luanda run completes in 17.8s and returns
+  24,435 built-up polygons (vs. a few hundred at the old 1.6km-radius
+  scope) -- checked in a real browser (the true-colour/mask overlay now
+  visibly traces the real coastline/bay, not a stretched square). 4 new
+  unit tests for `_compute_out_shape`'s aspect-ratio/cap/edge-case
+  behaviour. 55/55 tests passing.
+
 ## 0.1.21
 - **Building-type classification** (user request: "je ne detecte pas
   les maison sur mon algo... je veux detecte maisons immeuble et

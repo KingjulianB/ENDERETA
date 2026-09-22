@@ -146,9 +146,7 @@ def load_satellite():
     body = request.get_json(silent=True) or {}
     ndbi_threshold = float(body.get("ndbi_threshold", 0.0))
     ndvi_threshold = float(body.get("ndvi_threshold", 0.3))
-
-    lat, lon = LUANDA_CENTRE
-    bbox = bbox_from_center(lat, lon, radius_km=1.6)
+    bbox = _resolve_aoi(body).bounds
 
     try:
         result = detect_built_up_area(
