@@ -144,15 +144,32 @@ government-grade hosting exists.
 
 - `ingestion/osm_streets.py` and the new `ingestion/osm_buildings.py`
   are wired in (via `estimate-addresses` and `real-addresses`, see
-  above) and verified against real Luanda data. `ingestion/
-  open_buildings.py` (Google Open Buildings) is still unwired and
-  unexercised -- its Source Cooperative hosting needs non-trivial S3/
-  GeoParquet access work (see `discrepancies.md` § Sovereign
-  building/road detection model). Real OSM buildings now cover the
-  preferred path where OSM has mapped data; Open Buildings remains a
-  planned follow-up to fill gaps where it hasn't. `number-district`
+  above) and verified against real Luanda data. `number-district`
   still consumes already-ingested GeoJSON directly, independent of any
   ingestion module.
+- `ingestion/open_buildings.py` (Google Open Buildings, merged with
+  Microsoft Building Footprints + OSM via VIDA's combined dataset on
+  Source Cooperative) is now real and verified (2026-09-22) -- ~861K
+  candidate buildings for Luanda vs OSM alone's 7,508. NOT wired into
+  `estimate-addresses`/`real-addresses` (the addressing CLI commands
+  still use OSM only); currently used as the label source for
+  `detect-buildings-ml`'s training data instead -- see discrepancies.md
+  "Own neural network for built-up detection" for why OSM's coverage
+  turned out too sparse for that use case specifically.
+- `enderata detect-buildings-ml` (CLI only, added 2026-09-22) -- LOCAL/
+  OPTIONAL real per-building segmentation from a trained U-Net
+  (`ml/model.py` + `ml/predict_buildings.py`), best_val_iou=0.6098,
+  visually verified to detect individual house rooftops in dense
+  blocks (not just large structures -- see discrepancies.md). Needs
+  `pip install -r requirements-ml.txt` (torch) and a checkpoint trained
+  locally first; both are intentionally absent from `requirements.txt`
+  and the add-on's Docker image -- the command lazy-imports torch and
+  fails with a clear message if it's missing, so the rest of the CLI
+  keeps working without it. NOT wired into the server/viewer, and NOT
+  usable for the distributed commercial product: the checkpoint is a
+  derivative of Maxar's CC BY-NC 4.0 Open Data Program imagery
+  (prototype/local use only until retrained on properly licensed
+  imagery).
 - The Dockerfile now builds past the apt-get/system-deps step (fixed
   2026-09-20: `build.yaml` was silently rejected by Supervisor's
   validation, which fell back to HA's own Alpine base image and broke
@@ -194,9 +211,7 @@ government-grade hosting exists.
 - The Luanda district AOI boundary is now real (`aoi.py::load_luanda_aoi()`,
   see above, added 0.1.20) for `estimate-addresses`/`real-addresses`.
   `number-district`/`export-demo` still consume whatever GeoJSON they're
-  pointed at directly, independent of the AOI module. The Open Buildings
-  tile list is still not included (see `discrepancies.md` § Sovereign
-  building/road detection model).
+  pointed at directly, independent of the AOI module.
 - `pipeline.py` still DEFAULTS to sequencing postal IDs by sorting
   building IDs in memory -- valid only for a fixed, closed input set.
   As of 0.1.20 this is no longer the only option: pass a

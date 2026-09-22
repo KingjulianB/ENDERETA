@@ -119,20 +119,29 @@ def build_patch_dataset(
     patch_size_px: int = 512,
     max_patches: int | None = 300,
     maxar_url: str = MAXAR_LUANDA_URL,
+    footprints_gdf: gpd.GeoDataFrame | None = None,
 ) -> list[Patch]:
-    """Fetch real Maxar 0.5m imagery + rasterize real OSM building
+    """Fetch real Maxar 0.5m imagery + rasterize real building
     footprints for a tiled set of patches covering `aoi`. Opens the
     remote COG once and reuses the handle across all patches (each
     windowed read is cheap; repeatedly reopening the dataset per patch
     is not). `max_patches` caps how many patches are fetched (None =
     all patches intersecting the AOI, which can be several thousand
     for the full Luanda municipality -- cap for a manageable
-    prototyping run)."""
+    prototyping run).
+
+    `footprints_gdf` overrides the default OSM footprint source (see
+    `ingestion/osm_buildings.py`) with a pre-loaded GeoDataFrame in
+    EPSG:4326 -- e.g. `ingestion/open_buildings.py`'s Google/Microsoft/
+    OSM combined dataset, used because OSM's own building coverage in
+    Luanda turned out too sparse to train a building-segmentation model
+    against (verified 2026-09-22, see discrepancies.md)."""
     patch_bounds_list = list_patch_bounds(aoi, patch_size_px=patch_size_px)
     if max_patches is not None:
         patch_bounds_list = patch_bounds_list[:max_patches]
 
-    footprints = load_osm_building_footprints(aoi).to_crs(MAXAR_LUANDA_CRS)
+    source = footprints_gdf if footprints_gdf is not None else load_osm_building_footprints(aoi)
+    footprints = source.to_crs(MAXAR_LUANDA_CRS)
 
     patches: list[Patch] = []
     with rasterio.open(maxar_url) as ds:

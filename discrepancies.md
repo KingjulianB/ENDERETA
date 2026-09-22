@@ -96,15 +96,161 @@ belongs in the current `dayX_objectives.md` instead.
     adjusting coordinates, and checking the wrong array index -- not in
     `maxar_dataset.py`, confirmed by direct debugging before assuming
     either way). 65/65 tests passing.
-- **Not done yet:** decide which imagery pipeline the actual model
-  trains on (Sentinel-2 per-pixel classifier from `ml/dataset.py`, or
-  Maxar per-building segmentation from `ml/maxar_dataset.py` -- now
-  both exist and both work; Maxar gives real building outlines but is
-  NC-licensed/prototype-only, Sentinel-2 is commercially clean but
-  coarse) or build both and compare. Model architecture, patch
-  train/val split, training loop, evaluation against the NDBI/NDVI
-  baseline, integration (CLI/route/viewer). User has explicitly
-  accepted this spans multiple sessions.
+- **2026-09-22, both pipelines feed real models, precision
+  prioritized** (user: "les deux amillente lais priviligie la
+  precision"): built a shared U-Net (`ml/model.py`, 4-level encoder/
+  decoder, ~7.8M params, verified with a real forward+backward pass on
+  the GPU: batch of 4 at 512x512x3, 3.06GB peak VRAM) and a generic
+  training loop + spatial (not random) train/val split (`ml/train.py`),
+  used by both `ml/train_sentinel.py` and `ml/train_maxar.py` (local
+  research scripts, not part of the add-on CLI).
+- **Real, iterative loss-function debugging** (not guessed, each step
+  verified against real per-pixel predictions before moving on):
+  1. Plain BCE+Dice, no class-imbalance handling: Sentinel-2 training
+     (131 crops, ~1.3% positive pixels) collapsed to predicting
+     background on literally every pixel of every validation crop
+     (confirmed by inspecting real predictions, not just the loss
+     curve) -- val IoU stuck at exactly 0.3333 for 30 straight epochs,
+     which turned out to itself be a metric artifact (see below).
+  2. Added `pos_weight` (real negative:positive ratio, 65.15) to BCE:
+     overcorrected to predicting positive on ~97% of pixels --
+     confirmed by inspecting real predictions again.
+  3. sqrt-dampened `pos_weight` (8.07): still collapsed to all-negative
+     on a fresh run -- the tiny 131-crop Sentinel-2 dataset proved
+     highly sensitive to random init either way.
+  4. Switched to focal loss (Lin et al. 2017, per-pixel modulation
+     instead of one global scalar): on Maxar (425-2037 training
+     patches, ~7% positive pixels -- much less extreme imbalance and
+     far more data than Sentinel-2's 131 crops), this produced genuine,
+     non-collapsed learning.
+  - **Separately found and fixed a real bug in the training loop
+    itself, not the loss:** the checkpoint-saving criterion averaged
+    IoU per-batch, which let a batch with zero true positives count as
+    a "free" IoU=1.0 regardless of size -- an epoch with real_recall
+    =0.0 (finds nothing) scored *better* than one with real_recall
+    =0.31 (finds real buildings) purely from batch composition. Fixed
+    by aggregating tp/fp/fn across the WHOLE validation set before
+    computing IoU (mathematically sound, can't be gamed the same way);
+    also added real recall/precision (not just IoU) to every epoch's
+    printed output specifically because IoU alone couldn't be trusted
+    to distinguish genuine learning from collapse at this class
+    imbalance.
+- **Real finding after a full 25-epoch Maxar run (500 patches, this
+  fix + focal loss): a "large structure" bias, not genuine house
+  detection.** Aggregate validation metrics looked like real progress
+  (best IoU 0.089, recall 13.1%, precision 21.8%, non-zero true
+  positives confirmed on the full validation set: 23,238 tp). But
+  visually inspecting the single validation patch with the model's
+  *best* per-patch recall (81%) showed the "detection" was one large,
+  distinctively-shaped structure (a water tank/reservoir, visually
+  confirmed) -- every ordinary small house rooftop in the same image,
+  clearly visible in the true-colour crop, was missed entirely (no
+  prediction at all). The aggregate numbers are likely dominated by a
+  small number of large, easy-to-segment structures rather than
+  reflecting real generalization to typical Luanda housing, which is
+  the actual target. This was caught ONLY by looking at a real
+  prediction image side-by-side with ground truth, not from any
+  aggregate metric -- a second confirmation (after the checkpoint-
+  criterion bug above) that these metrics alone are not trustworthy at
+  this data scale without a visual check.
+- **2026-09-22, response: more training data, same source** (user:
+  "télécharge moi des [images] plus visible et plus correcte", then
+  clarified: more Maxar patches, same source, to fight the bias with
+  more/more-varied real examples). Searched OpenAerialMap across all of
+  Angola for a better/newer/different imagery source first -- found
+  none for Luanda specifically (only drone captures around Kinshasa/DRC
+  and a 2019 Kinshasa-Brazzaville Maxar mosaic, neither relevant).
+  Rebuilt the training set with all 2037 available patches (was 500)
+  and retrained: best_val_iou=0.2272 (up from 0.089), recall 34.0%,
+  precision 40.7% after 25 epochs -- looked like real progress again.
+- **2026-09-22, real root cause found: NOT a "large structure" model
+  bias -- OSM's building coverage itself is too sparse to train
+  against.** A second visual check (this time on the TOP-recall
+  patches from the 2037-patch run, not just one) showed the same
+  pattern as before, just with more examples: dense residential blocks
+  with dozens of real rooftops clearly visible in the true-colour crop,
+  but the ground-truth mask marking only ONE large rectangular
+  structure as positive -- every ordinary house in frame was simply
+  never labelled, not missed by the model. Traced this to
+  `ml/maxar_dataset.py`'s label source, `ingestion/osm_buildings.py`'s
+  `load_osm_building_footprints` (OSM's volunteer-mapped building
+  layer) -- median recall across validation patches that DO contain
+  real buildings was only 0.151, consistent with most houses having no
+  positive label to learn from at all. More Maxar patches couldn't fix
+  this: the bottleneck was label density, not imagery volume, so the
+  500-patch and 2037-patch runs hit the same ceiling for the same
+  reason.
+- **2026-09-22, fix: switched the label source to Google Open
+  Buildings (merged with Microsoft Building Footprints + OSM,
+  deduplicated), user's explicit choice after being shown this
+  finding.** Built `ingestion/open_buildings.py` (was a stale,
+  never-executed stub assuming pre-downloaded local tiles) against
+  VIDA's combined dataset on Source Cooperative
+  (`data.source.coop/vida/google-microsoft-osm-open-buildings`,
+  by-country GeoParquet) -- a DIFFERENT repo from the one investigated
+  and shelved in the "Sovereign building/road detection model" section
+  below (`cholmes/google-open-buildings`, plain Google-only, hit a
+  broken S3 endpoint + rate-limiting). This VIDA mirror worked
+  cleanly: plain HTTPS range reads, no auth, no rate-limiting
+  encountered even under heavy use. Verified real coverage gap: ~861K
+  candidate buildings in Luanda's AOI bounding box (843K Google-
+  sourced, 18K Microsoft, 189 OSM-only after dedup) vs. OSM alone's
+  7,508 -- roughly two orders of magnitude denser, as expected for an
+  ML-detected layer over volunteer mapping in an area with heavy
+  informal (musseque) housing.
+  - Practical access notes for future reference: an exact `ST_Intersects`
+    polygon clip against the remote (non-indexed) whole-country table
+    pushed a query from ~48s to an estimated several HOURS -- switched
+    to a bounding-box-only filter (precise enough here, since patch
+    tiling already clips per-patch downstream). A plain single-stream
+    `curl` full-file download stalled at ~15KB/s (throttled); a
+    16-way parallel HTTP range-request download with per-chunk size
+    verification and automatic retry completed the 1.64GB file in
+    under a minute and caught a real silent-truncation bug (a naive
+    first attempt concatenated chunks without verifying sizes first,
+    producing a corrupt file ~178MB short with no error until DuckDB
+    failed to find the parquet footer).
+  - Re-rasterized the ALREADY-fetched 2037 Maxar RGB patches against
+    the new labels (no need to re-fetch imagery, only labels changed):
+    12.7x more positive pixels (179.7M vs 14.1M). Retrained from
+    scratch, same architecture/loss (focal, 25 epochs): **best_val_iou
+    =0.6098** (epoch 21), a ~2.7x improvement over the OSM-labeled
+    2037-patch run's 0.2272, and no longer plateaued after a handful of
+    epochs -- e.g. recall 75.4%/precision 76.1% at the best checkpoint.
+  - Visually re-verified on a RANDOM sample of validation patches (not
+    cherry-picked top-N, learning from the earlier false confidence):
+    301/306 val patches now contain real buildings (was 104/306),
+    median recall=0.757 / median precision=0.771 across that random
+    sample (was median recall=0.151). Prediction images now trace
+    individual house rooftops across whole dense blocks, matching
+    ground truth's actual shapes -- not one blob. The large-structure
+    bias is resolved; this is genuine building-level detection.
+- **2026-09-22, CLI integration** (user: "intègre le au CLI"). Asked
+  first whether this meant the add-on's shipped Docker image or a
+  local-only command, given torch (multi-GB) isn't in `requirements.txt`
+  and the checkpoint is CC BY-NC-derived -- user chose local-only.
+  Added `ml/predict_buildings.py` (tiles the AOI, runs the trained
+  U-Net per patch, vectorizes detections to a GeoJSON FeatureCollection)
+  and `enderata detect-buildings-ml` (new `cli.py` subcommand, lazy
+  `import torch` inside the function with a clear install-instructions
+  error if missing, `FileNotFoundError`-style clear error if the
+  checkpoint path doesn't exist). Deliberately NOT added to
+  `requirements.txt`/the server/viewer -- stays a local, optional CLI
+  command only. Verified end-to-end against real data: `--radius-km 0.5
+  --max-patches 4` produced 95 real building polygons, valid GeoJSON,
+  real Luanda coordinates. 73/73 existing tests still pass (no
+  regression). Documented in DOCS.md, including correcting two now-
+  stale notes there claiming `open_buildings.py` was still unwired.
+- **Not done yet:** decide whether Sentinel-2's per-pixel classifier is
+  worth pursuing further given its data-scarcity problem (131 crops
+  from one scene) or should be deprioritized (could also be re-run
+  against Open Buildings labels rasterized onto its per-pixel grid,
+  not yet tried); evaluation against the NDBI/NDVI baseline; server
+  route / viewer button for `detect-buildings-ml` (CLI-only so far);
+  still bound by the Maxar imagery's CC BY-NC 4.0 license (prototyping/
+  local use only, see module docstrings) until re-trained on properly
+  licensed imagery -- not usable for the distributed commercial
+  product as-is.
 
 ### Sovereign building/road detection model — CLOSED for now, NDBI/NDVI is the answer
 

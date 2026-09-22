@@ -230,6 +230,56 @@ def real_addresses(
     )
 
 
+def detect_buildings_ml(
+    lat: float,
+    lon: float,
+    radius_km: float | None,
+    out_dir: str,
+    checkpoint: str,
+    max_patches: int | None,
+    threshold: float,
+) -> None:
+    """LOCAL/OPTIONAL: real per-building segmentation from the trained
+    Maxar U-Net (see discrepancies.md's "Own neural network for
+    built-up detection", best_val_iou=0.6098). torch and the
+    checkpoint are both absent from the add-on's shipped Docker image
+    -- imported lazily here so the rest of the CLI works without
+    either installed. NOT for the distributed commercial product: the
+    checkpoint is a derivative of Maxar's CC BY-NC 4.0 imagery."""
+    try:
+        from enderata.ml.predict_buildings import detect_buildings_ml as run_detection
+    except ImportError as e:
+        raise SystemExit(
+            "[enderata] this command needs torch, which isn't installed by default "
+            "(it's kept out of requirements.txt to avoid bloating the add-on's Docker image). "
+            "Install it with: pip install -r requirements-ml.txt\n"
+            f"(original error: {e})"
+        ) from e
+
+    if not Path(checkpoint).exists():
+        raise SystemExit(
+            f"[enderata] checkpoint not found: {checkpoint}\n"
+            "Train one first (see enderata/src/enderata/ml/train_maxar.py), or pass --checkpoint "
+            "pointing to an existing .pt file."
+        )
+
+    aoi = _resolve_aoi(lat, lon, radius_km)
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    result = run_detection(aoi, checkpoint, max_patches=max_patches, threshold=threshold)
+
+    with (out / "ml_buildings.geojson").open("w", encoding="utf-8") as f:
+        json.dump(result, f)
+
+    print(
+        f"[enderata] {len(result['features'])} building footprints detected by the trained U-Net "
+        f"(checkpoint={checkpoint}, threshold={threshold}). "
+        "PROTOTYPE MODEL trained on CC BY-NC 4.0 Maxar imagery -- local/non-commercial use only, "
+        "see discrepancies.md before relying on this for anything shipped."
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="enderata")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -312,6 +362,29 @@ def main() -> None:
     real_parser.add_argument("--district", default="LUA")
     real_parser.add_argument("--max-distance", type=float, default=100.0)
 
+    ml_parser = subparsers.add_parser(
+        "detect-buildings-ml",
+        help=(
+            "LOCAL/OPTIONAL: real per-building segmentation from the trained Maxar U-Net "
+            "(needs torch, requirements-ml.txt -- not in the add-on's Docker image; "
+            "prototype-only, CC BY-NC 4.0 imagery, see discrepancies.md)"
+        ),
+    )
+    ml_parser.add_argument("--lat", type=float, default=LUANDA_CENTRE[0])
+    ml_parser.add_argument("--lon", type=float, default=LUANDA_CENTRE[1])
+    ml_parser.add_argument(
+        "--radius-km",
+        type=float,
+        default=None,
+        help="Override: use a bbox square of this radius instead of the real Luanda AOI polygon",
+    )
+    ml_parser.add_argument("--out", default="/data/export")
+    ml_parser.add_argument("--checkpoint", default="ml_checkpoints/maxar_unet_openbuildings.pt")
+    ml_parser.add_argument(
+        "--max-patches", type=int, default=None, help="Cap how many 512px tiles to run (default: the whole AOI)"
+    )
+    ml_parser.add_argument("--threshold", type=float, default=0.5)
+
     args = parser.parse_args()
     if args.command == "export-demo":
         export_demo(args.buildings, args.streets, args.out)
@@ -350,6 +423,16 @@ def main() -> None:
             args.country,
             args.district,
             args.max_distance,
+        )
+    elif args.command == "detect-buildings-ml":
+        detect_buildings_ml(
+            args.lat,
+            args.lon,
+            args.radius_km,
+            args.out,
+            args.checkpoint,
+            args.max_patches,
+            args.threshold,
         )
 
 
