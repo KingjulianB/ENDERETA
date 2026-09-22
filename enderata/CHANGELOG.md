@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.1.21
+- **Building-type classification** (user request: "je ne detecte pas
+  les maison sur mon algo... je veux detecte maisons immeuble et
+  entrepot"): before changing anything, checked the real OSM data --
+  no bug found, houses/apartments were already being fetched (OSM's
+  `building` tag was just never surfaced or shown differently in the
+  output/viewer). New `ingestion/osm_buildings.py::classify_building_type`
+  maps OSM's `building` tag to house/apartment/warehouse/other,
+  verified against the full real Luanda AOI (7508 buildings: 2436
+  house, 313 apartment, 212 warehouse, 4547 other). No building in
+  Luanda's real OSM data is literally tagged "warehouse" -- "industrial"
+  is used as the closest real proxy, documented as a judgment call, not
+  a guess about data that doesn't exist.
+- **Existing OSM street names/addresses captured too** (user request:
+  "prend aussi les noms des rue existante"): `osm_street_name`/
+  `osm_housenumber` (from OSM's own `addr:street`/`addr:housenumber`
+  tags) are now captured and carried through as reference fields
+  alongside this project's own computed address -- 2065/7508 real
+  buildings in the full Luanda AOI already carry a real `addr:street`
+  tag.
+- `pipeline.py::AddressedBuilding`/`run_pipeline`/`to_feature_collection`
+  extended with optional `building_type`/`osm_street_name`/
+  `osm_housenumber` fields (default None, so the synthetic fixture and
+  `estimate-addresses`' grid-sampled points -- neither has OSM tags --
+  are unaffected). Viewer's "Assign addresses (real OSM buildings)"
+  layer now colour-codes markers by type (teal=house, orange=apartment,
+  brown=warehouse, green=other) and shows both addresses in the popup;
+  `real-addresses`' CLI output/CSV include a type breakdown and the two
+  new columns.
+- Caught and fixed a real bug while building this: geopandas silently
+  turned a Python `None` into a float `NaN` when a GeoDataFrame column
+  was built from a plain list mixing `None` and strings (`osm_buildings.py`'s
+  output) -- `run_pipeline()` now normalizes NaN to None itself rather
+  than trusting the input, with a regression test reproducing the exact
+  bug. Verified end-to-end against real Luanda data (color-coded
+  markers, enriched popups) in a real browser.
+- 51/51 tests passing (13 new: classification + NaN/None regression).
+
 ## 0.1.20
 - **Real Luanda AOI boundary** (new `aoi.py`): `estimate-addresses` and
   `real-addresses` (CLI + viewer buttons) now default to the real

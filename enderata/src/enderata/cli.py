@@ -203,13 +203,30 @@ def real_addresses(
 
     with (out / "addresses.csv").open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["building_id", "postal_id", "display_address"])
+        writer.writerow(
+            ["building_id", "postal_id", "display_address", "building_type", "osm_street_name", "osm_housenumber"]
+        )
         for item in result.addressed:
-            writer.writerow([item.building_id, item.postal_id, item.display_address])
+            writer.writerow(
+                [
+                    item.building_id,
+                    item.postal_id,
+                    item.display_address,
+                    item.building_type,
+                    item.osm_street_name,
+                    item.osm_housenumber,
+                ]
+            )
+
+    type_counts: dict[str, int] = {}
+    for item in result.addressed:
+        type_counts[item.building_type] = type_counts.get(item.building_type, 0) + 1
+    type_summary = ", ".join(f"{count} {btype}" for btype, count in sorted(type_counts.items()))
 
     print(
-        f"[enderata] {result.n_osm_buildings} real OSM-mapped buildings, {result.n_streets} real OSM streets, "
-        f"{result.n_addressed} addressed. Real footprints, but OSM building coverage may be incomplete."
+        f"[enderata] {result.n_osm_buildings} real OSM-mapped buildings ({type_summary}), "
+        f"{result.n_streets} real OSM streets, {result.n_addressed} addressed. "
+        "Real footprints, but OSM building coverage may be incomplete."
     )
 
 

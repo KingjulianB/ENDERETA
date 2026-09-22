@@ -314,9 +314,18 @@ estimateButton.addEventListener("click", () => {
 
 // Real addressing: real OSM streets + real OSM-mapped buildings (no
 // satellite fetch). These ARE real footprints, but OSM's building
-// coverage in Luanda is volunteer-mapped and may be incomplete --
-// distinct green layer so it's never confused with the purple
-// estimated layer or the red demo fixture.
+// coverage in Luanda is volunteer-mapped and may be incomplete.
+// Markers are colour-coded by building_type (ingestion/osm_buildings.py's
+// classify_building_type, from OSM's `building` tag -- "other" covers
+// every OSM building tag not confidently mapped to house/apartment/
+// warehouse, including the ~60% tagged just "yes" with no subtype).
+const BUILDING_TYPE_COLOURS = {
+  house: "#2a9d8f", // teal
+  apartment: "#e76f51", // orange
+  warehouse: "#6d4c41", // brown
+  other: "#1b7a43", // green (default/fallback)
+};
+
 const realLayers = [];
 const realButton = document.getElementById("real-addresses");
 
@@ -337,11 +346,19 @@ realButton.addEventListener("click", () => {
         loadGeoJsonLayer(
           "data/real_buildings.geojson",
           {
-            pointToLayer: (feature, latlng) =>
-              L.circleMarker(latlng, { radius: 4, color: "#1b7a43", fillOpacity: 0.9 }),
+            pointToLayer: (feature, latlng) => {
+              const colour = BUILDING_TYPE_COLOURS[feature.properties?.building_type] || BUILDING_TYPE_COLOURS.other;
+              return L.circleMarker(latlng, { radius: 4, color: colour, fillOpacity: 0.9 });
+            },
             onEachFeature: (feature, layer) => {
               const props = feature.properties || {};
-              if (props.display_address) layer.bindPopup(props.display_address);
+              const lines = [props.display_address, `Type: ${props.building_type || "other"}`];
+              if (props.osm_street_name) {
+                lines.push(
+                  `OSM address: ${props.osm_street_name}${props.osm_housenumber ? ", " + props.osm_housenumber : ""}`
+                );
+              }
+              layer.bindPopup(lines.join("<br>"));
             },
           },
           realLayers
@@ -350,8 +367,10 @@ realButton.addEventListener("click", () => {
         addressingNote.hidden = false;
         addressingNote.textContent =
           `${result.count} addresses assigned to ${result.n_osm_buildings} REAL OSM-mapped buildings ` +
-          `against ${result.n_streets} real OSM streets. Real footprints, but OSM coverage may be ` +
-          "incomplete (volunteer-mapped) -- see DOCS.md.";
+          `against ${result.n_streets} real OSM streets. Coloured by type: teal=house, orange=apartment, ` +
+          "brown=warehouse (OSM's closest tag is \"industrial\", no literal \"warehouse\" exists in Luanda's " +
+          "data), green=other/untyped. Real footprints, but OSM coverage may be incomplete (volunteer-mapped) " +
+          "-- see DOCS.md.";
       })
     )
     .catch(() =>

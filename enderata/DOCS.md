@@ -24,7 +24,7 @@ government-grade hosting exists.
   hand against `tests/fixtures/synthetic_sample/` (5 fake buildings, 2
   fake streets) -- output confirmed correct (valid check digits, no
   duplicate IDs, address never contains the postal ID).
-- 38/38 automated tests pass, including an integration test that reruns
+- 51/51 automated tests pass, including an integration test that reruns
   the pipeline twice on the fixture and asserts identical postal IDs
   (the permanence guarantee) -- see `tests/integration/`.
 - The viewer now has a real self-hosted basemap: `tiles/luanda.mbtiles`
@@ -113,6 +113,21 @@ government-grade hosting exists.
   `cli.py` and both server routes use it automatically when the add-on's
   Postgres is reachable, so an existing building's postal ID is never
   reassigned even after new buildings are added in a later run.
+- Real OSM buildings are now classified by type (`ingestion/
+  osm_buildings.py::classify_building_type`, from OSM's own `building`
+  tag) into house/apartment/warehouse/other, and existing OSM
+  `addr:street`/`addr:housenumber` tags are captured too (as reference
+  fields alongside this project's own computed address, not used to
+  generate it). Verified against the full real Luanda AOI: 2436 house,
+  313 apartment, 212 warehouse, 4547 other (out of 7508); 2065 already
+  carry a real OSM street name. No building in Luanda's OSM data is
+  literally tagged "warehouse" -- "industrial" is used as the closest
+  real proxy (see `ingestion/osm_buildings.py`'s docstring for the full
+  tag mapping). The "Assign addresses (real OSM buildings)" viewer
+  layer colour-codes markers by type and shows both addresses in the
+  popup; `real-addresses`' CLI output/CSV include the breakdown and new
+  columns. This does NOT apply to `estimate-addresses` (its grid-sampled
+  points have no OSM tags to classify).
 
 ## What is NOT done yet -- do not assume otherwise
 

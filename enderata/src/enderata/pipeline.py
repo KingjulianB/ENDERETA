@@ -33,6 +33,13 @@ class AddressedBuilding:
     display_address: str
     longitude: float
     latitude: float
+    # Optional -- only populated when buildings_gdf carries these columns
+    # (real OSM buildings, ingestion/osm_buildings.py). None for the
+    # synthetic fixture and estimate_addresses.py's grid-sampled points,
+    # which have no OSM tags to draw from.
+    building_type: str | None = None
+    osm_street_name: str | None = None
+    osm_housenumber: str | None = None
 
 
 def _streets_from_geodataframe(streets_gdf: gpd.GeoDataFrame) -> list[Street]:
@@ -40,6 +47,17 @@ def _streets_from_geodataframe(streets_gdf: gpd.GeoDataFrame) -> list[Street]:
         Street(street_id=row.street_id, name=row.name, geometry=row.geometry)
         for row in streets_gdf.itertuples()
     ]
+
+
+def _clean_optional(value: object) -> str | None:
+    """pandas/geopandas silently turns a Python None into a float NaN
+    when a GeoDataFrame column is built from a plain list mixing None
+    and strings (observed directly in osm_buildings.py's output) --
+    itertuples() then hands back that NaN, not None. Normalize both to
+    None here rather than relying on upstream construction to avoid it."""
+    if value is None or (isinstance(value, float) and value != value):  # NaN
+        return None
+    return value
 
 
 def run_pipeline(
@@ -56,8 +74,14 @@ def run_pipeline(
 
     assignments = {}
     geometries = {}
+    extra_attrs = {}
     for row in buildings_gdf.itertuples():
         geometries[row.building_id] = row.geometry
+        extra_attrs[row.building_id] = {
+            "building_type": _clean_optional(getattr(row, "building_type", None)),
+            "osm_street_name": _clean_optional(getattr(row, "osm_street_name", None)),
+            "osm_housenumber": _clean_optional(getattr(row, "osm_housenumber", None)),
+        }
         result = assign_building_to_street(row.geometry, street_index, max_distance=max_distance)
         if result is not None:
             assignments[row.building_id] = result
@@ -82,6 +106,7 @@ def run_pipeline(
         street_name = street_names[assignment.street_id]
         geometry = geometries[building_id]
         sequence = sequence_provider.next_sequence(building_id)
+        attrs = extra_attrs[building_id]
         results.append(
             AddressedBuilding(
                 building_id=building_id,
@@ -91,6 +116,9 @@ def run_pipeline(
                 display_address=format_address(street_name, house_numbers[building_id], district_code),
                 longitude=geometry.x,
                 latitude=geometry.y,
+                building_type=attrs["building_type"],
+                osm_street_name=attrs["osm_street_name"],
+                osm_housenumber=attrs["osm_housenumber"],
             )
         )
     return results
@@ -108,6 +136,9 @@ def to_feature_collection(addressed: list[AddressedBuilding]) -> dict:
                     "street_name": item.street_name,
                     "house_number": item.house_number,
                     "display_address": item.display_address,
+                    "building_type": item.building_type,
+                    "osm_street_name": item.osm_street_name,
+                    "osm_housenumber": item.osm_housenumber,
                 },
                 "geometry": {
                     "type": "Point",
