@@ -1,7 +1,7 @@
 """Fetch OpenStreetMap street geometries for the ENDERETA AOI via osmnx.
 
 NOT exercised against real data or network in this session -- verify
-against a real Huambo extract before relying on it.
+against a real Luanda extract before relying on it.
 """
 
 from __future__ import annotations

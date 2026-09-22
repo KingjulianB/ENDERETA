@@ -7,8 +7,8 @@ set -euo pipefail
 OPTIONS_FILE=/data/options.json
 if [ -f "${OPTIONS_FILE}" ]; then
   export COUNTRY_CODE="$(jq -r '.country_code // "AO"' "${OPTIONS_FILE}")"
-  export DISTRICT_CODE="$(jq -r '.district_code // "HUA"' "${OPTIONS_FILE}")"
-  export AOI_DISTRICT="$(jq -r '.aoi_district // "huambo"' "${OPTIONS_FILE}")"
+  export DISTRICT_CODE="$(jq -r '.district_code // "LUA"' "${OPTIONS_FILE}")"
+  export AOI_DISTRICT="$(jq -r '.aoi_district // "luanda"' "${OPTIONS_FILE}")"
 fi
 
 PGDATA=/data/postgres

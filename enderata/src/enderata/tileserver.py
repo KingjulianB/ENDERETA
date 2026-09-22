@@ -1,5 +1,5 @@
-"""Serves vector tiles directly out of the pre-generated Huambo MBTiles
-file (tiles/huambo.mbtiles -- see tiles/README.md for how it was
+"""Serves vector tiles directly out of the pre-generated Luanda MBTiles
+file (tiles/luanda.mbtiles -- see tiles/README.md for how it was
 built with Planetiler). No Planetiler/Java at runtime: MBTiles is just
 a SQLite database, this does a read-only lookup per request.
 
@@ -7,8 +7,12 @@ MBTiles stores tiles in TMS row order (Y=0 at the south), while web map
 libraries (MapLibre, Leaflet) request tiles in XYZ order (Y=0 at the
 north) -- get_tile() converts between the two. Verified against the
 real generated file: at z14, the tile independently computed to cover
-Huambo's centre (8908, 8778 XYZ) matches tile_row=7605 in the MBTiles
-table via xyz_y = (2**z - 1) - tms_y = 16383 - 7605 = 8778.
+Luanda's centre (8794, 8595 XYZ) matches tile_row=7788 in the MBTiles
+table via xyz_y = (2**z - 1) - tms_y = 16383 - 7788 = 8595.
+
+Pilot district changed from Huambo to Luanda 2026-09-22 (open,
+CC-BY 4.0 high-res imagery exists for Luanda via OpenAerialMap; none
+for Huambo -- see discrepancies.md).
 """
 
 from __future__ import annotations
@@ -17,7 +21,7 @@ import os
 import sqlite3
 from pathlib import Path
 
-MBTILES_PATH = os.environ.get("ENDERATA_MBTILES_PATH", "/app/tiles/huambo.mbtiles")
+MBTILES_PATH = os.environ.get("ENDERATA_MBTILES_PATH", "/app/tiles/luanda.mbtiles")
 
 # Printed once at import time (visible in the HA add-on log, PYTHONUNBUFFERED=1
 # is set in the Dockerfile) -- "map is blank" is otherwise silent and
@@ -38,7 +42,7 @@ def _connect() -> sqlite3.Connection:
 
 def get_tile(z: int, x: int, y: int) -> bytes | None:
     """Return the gzip-compressed PBF tile blob for XYZ (z, x, y), or
-    None if that tile has no data (e.g. outside the Huambo AOI)."""
+    None if that tile has no data (e.g. outside the Luanda AOI)."""
     tms_y = (2**z - 1) - y
     conn = _connect()
     try:

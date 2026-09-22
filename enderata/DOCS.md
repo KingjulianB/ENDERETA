@@ -1,7 +1,8 @@
 # ENDERETA add-on
 
 Geospatial data pipeline and permanent postal-ID numbering engine for the
-ENDERETA POC (Huambo district), packaged as a Home Assistant add-on so it
+ENDERETA POC (Luanda district -- pilot changed from Huambo 2026-09-22,
+see `discrepancies.md`), packaged as a Home Assistant add-on so it
 can run on infrastructure you already operate, before any dedicated
 government-grade hosting exists.
 
@@ -26,7 +27,7 @@ government-grade hosting exists.
 - 23/23 automated tests pass, including an integration test that reruns
   the pipeline twice on the fixture and asserts identical postal IDs
   (the permanence guarantee) -- see `tests/integration/`.
-- The viewer now has a real self-hosted basemap: `tiles/huambo.mbtiles`
+- The viewer now has a real self-hosted basemap: `tiles/luanda.mbtiles`
   (OpenMapTiles vector tiles, generated offline with Planetiler --
   see `tiles/README.md`) served at `GET /tiles/<z>/<x>/<y>.pbf` and
   rendered client-side with Leaflet.VectorGrid. No third-party tile
@@ -37,7 +38,7 @@ government-grade hosting exists.
   (chrome-devtools screenshots), not just Python tests.
 - `enderata satellite-builtup` (CLI) and `POST /api/load-satellite`
   (viewer button "Load satellite layer") fetch a real, current
-  Sentinel-2 scene over Huambo (public AWS STAC catalog, free, no API
+  Sentinel-2 scene over Luanda (public AWS STAC catalog, free, no API
   key, confirmed commercial-use-safe) and render a coarse built-up-area
   layer -- **not** building footprints, a density/extent signal only
   (10m/pixel). Requires outbound internet from wherever the add-on
@@ -96,10 +97,11 @@ government-grade hosting exists.
 - No Alembic migrations: schema is created with
   `Base.metadata.create_all()`, fine for a POC, not for evolving a live
   dataset.
-- The Huambo district AOI boundary and Open Buildings tile list are not
+- The Luanda district AOI boundary and Open Buildings tile list are not
   included -- you need to supply the district polygon before real
   ingestion can run. Everything verified so far used a 5-building
-  synthetic fixture, NOT real Huambo data.
+  synthetic fixture (near the old Huambo location -- see the fixture's
+  own README), NOT real Luanda data.
 - `pipeline.py` sequences postal IDs by sorting building IDs in memory
   (documented in its docstring) -- valid only for a fixed, closed input
   set. A persistent DB sequence is required before this can run against
@@ -120,7 +122,7 @@ government-grade hosting exists.
 | Option | Purpose |
 |---|---|
 | `country_code` | 2-letter prefix for postal IDs (default `AO`) |
-| `district_code` | 3-letter district prefix (default `HUA` for Huambo) |
+| `district_code` | 3-letter district prefix (default `LUA` for Luanda) |
 | `aoi_district` | machine name used by ingestion scripts |
 
 ## Running the tests locally (no Docker needed)
@@ -145,12 +147,12 @@ You can also run the CLI directly against the fixture:
 PYTHONPATH=src python -m enderata.cli number-district \
   --buildings tests/fixtures/synthetic_sample/buildings.geojson \
   --streets tests/fixtures/synthetic_sample/streets.geojson \
-  --out .demo_export --country AO --district HUA
+  --out .demo_export --country AO --district LUA
 ```
 
 ## Next steps toward the Foundation / Core-engine milestones
 
-1. Supply the real Huambo district AOI polygon (everything so far has
+1. Supply the real Luanda district AOI polygon (everything so far has
    run only on the 5-building synthetic fixture).
 2. Keep iterating the build on real HA Supervisor output: next likely
    failure points are `pip install` compiling geopandas/osmnx, and
@@ -161,7 +163,7 @@ PYTHONPATH=src python -m enderata.cli number-district \
    instead of reading pre-made GeoJSON, and call
    `ingestion/load_postgis.py` to persist results.
 4. Re-run the permanence test (`tests/integration/`) against the real
-   Huambo extract once ingestion is wired in, not just the fixture.
+   Luanda extract once ingestion is wired in, not just the fixture.
 5. Replace the in-memory sorted-building-id sequencing in `pipeline.py`
    with a persistent DB sequence keyed by building_id, so IDs survive
    new buildings being added later without shifting existing ones.

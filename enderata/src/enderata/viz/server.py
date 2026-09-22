@@ -1,4 +1,5 @@
-"""Minimal web server for the Huambo POC demo.
+"""Minimal web server for the Luanda POC demo (pilot district changed
+from Huambo to Luanda 2026-09-22 -- see discrepancies.md).
 
 Serves the static Leaflet viewer and the exported GeoJSON layers. Runs
 behind Home Assistant ingress -- all asset references in the viewer
@@ -12,7 +13,7 @@ available to most users -- the demo has to be triggerable from the web
 UI itself, not just the CLI.
 
 Also exposes /api/load-satellite, which fetches a real Sentinel-2 scene
-over Huambo (via the public AWS Earth Search STAC catalog -- needs
+over Luanda (via the public AWS Earth Search STAC catalog -- needs
 outbound internet from wherever this add-on runs) and computes a coarse
 NDBI+NDVI built-up mask. This is NOT building-footprint detection (see
 enderata.satellite.built_up's docstring) -- it's a free, legally-clean
@@ -31,7 +32,7 @@ from flask import Flask, jsonify, request, send_from_directory
 
 from enderata.pipeline import run_pipeline, to_feature_collection
 from enderata.satellite.pipeline import bbox_from_center, detect_built_up_area
-from enderata.satellite.sentinel2 import HUAMBO_CENTRE
+from enderata.satellite.sentinel2 import LUANDA_CENTRE
 from enderata.tileserver import get_tile
 
 VIEWER_DIR = os.environ.get("ENDERATA_VIEWER_DIR", "/app/viewer")
@@ -73,7 +74,7 @@ def data_files(filename):
 
 @app.route("/tiles/<int:z>/<int:x>/<int:y>.pbf")
 def tiles(z, x, y):
-    # See tiles/README.md: huambo.mbtiles is pre-generated (Planetiler,
+    # See tiles/README.md: luanda.mbtiles is pre-generated (Planetiler,
     # offline), this just reads the matching blob out of it.
     try:
         tile = get_tile(z, x, y)
@@ -97,7 +98,7 @@ def load_demo():
 
     buildings_gdf = gpd.read_file(buildings_path)
     streets_gdf = gpd.read_file(streets_path)
-    addressed = run_pipeline(buildings_gdf, streets_gdf, "AO", "HUA")
+    addressed = run_pipeline(buildings_gdf, streets_gdf, "AO", "LUA")
 
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(os.path.join(DATA_DIR, "buildings.geojson"), "w", encoding="utf-8") as f:
@@ -120,7 +121,7 @@ def load_satellite():
     ndbi_threshold = float(body.get("ndbi_threshold", 0.0))
     ndvi_threshold = float(body.get("ndvi_threshold", 0.3))
 
-    lat, lon = HUAMBO_CENTRE
+    lat, lon = LUANDA_CENTRE
     bbox = bbox_from_center(lat, lon, radius_km=1.6)
 
     try:

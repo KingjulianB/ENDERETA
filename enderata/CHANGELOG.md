@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.1.16
+- **Pilot district changed from Huambo to Luanda.** Rationale: real,
+  open (CC-BY 4.0) high-resolution imagery exists for Luanda via
+  OpenAerialMap (a 2017 Maxar mosaic, 0.5m/pixel, confirmed via their
+  live API) -- none exists for Huambo at any usable resolution or
+  licence (Planet NICFI and OSM-editor imagery layers were both
+  checked and ruled out on licensing grounds). Full pivot, not a
+  side-by-side option: `LUANDA_CENTRE` replaces `HUAMBO_CENTRE`
+  everywhere, `district_code`/`aoi_district` defaults are now
+  `LUA`/`luanda`, and `tiles/luanda.mbtiles` (regenerated with
+  Planetiler, same process as before, see `tiles/README.md`) replaces
+  `tiles/huambo.mbtiles`.
+- Verified end to end again after the switch, not assumed to still
+  work: real Sentinel-2 fetch over Luanda's actual coordinates (240
+  built-up polygons, true-colour/NDBI/NDVI images all render
+  correctly), and a real browser check of the new vector tile basemap
+  -- which caught a genuine new bug: Luanda's AOI includes a named
+  water body (the bay), producing a `water_name` vector layer that
+  didn't exist in Huambo's smaller tileset and wasn't in the viewer's
+  style list, showing up as an unstyled default blue marker. Fixed by
+  adding it to the hidden-layers list.
+- 23/23 tests passing (updated `test_tileserver.py` to check the new
+  Luanda tile coordinates/bounds instead of Huambo's).
+
 ## 0.1.15
 - Diagnosing "no map at all" reported on a real HA run: verified the
   committed `tiles/huambo.mbtiles` is byte-identical on GitHub (sha256

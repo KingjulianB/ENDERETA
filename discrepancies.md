@@ -68,27 +68,39 @@ belongs in the current `dayX_objectives.md` instead.
   OSM" (and Maxar revoked this access in July 2023 anyway). None
   permit bulk download or reuse outside the OSM editor -- an OSM
   account does not unlock anything usable here.
-- **Status:** SpaceNet path still blocked on imagery budget/licensing
-  (checked and ruled out: NICFI, OSM editor imagery layers). Sentinel-2
-  NDBI/NDVI path built, tested (4 new unit tests, 20/20
-  total passing), and verified against real data — usable today as a
-  free, legally-clean, coarse sovereignty-aligned signal, with its
-  precision limits documented rather than overstated.
+- **2026-09-22, pilot district changed from Huambo to Luanda** (see
+  `project_log.md` Resolved #10 and below) **potentially reopens this
+  path:** OpenAerialMap's real, verified CC-BY 4.0 Luanda coverage (a
+  2017 Maxar mosaic) is 0.5m/pixel — right at the edge of what
+  SpaceNet's models were trained on (~30-50cm). Not yet tried: fetching
+  that mosaic and actually running SpaceNet inference against it. Real
+  chance this unblocks proper building-footprint detection where
+  Huambo never could — worth a follow-up session, not done here.
+- **Status:** SpaceNet path was blocked on imagery budget/licensing for
+  Huambo (checked and ruled out: NICFI, OSM editor imagery layers) —
+  the Luanda switch may change this, untested. Sentinel-2 NDBI/NDVI
+  path built, tested (4 new unit tests, 23/23 total passing), verified
+  against real Luanda data — usable today as a free, legally-clean,
+  coarse sovereignty-aligned signal, with its precision limits
+  documented rather than overstated.
 
-### Real Huambo AOI boundary
+### Real Luanda AOI boundary (renamed from "Real Huambo AOI boundary",
+### pilot district changed 2026-09-22)
 
 - **What I tried:** built and verified the entire numbering pipeline
   (street assignment → house numbering → postal ID → address
   formatting → CLI → viewer) against a hand-made 5-point/2-line
   synthetic fixture (`enderata/tests/fixtures/synthetic_sample/`),
-  explicitly labeled as fake data.
-- **What's needed:** the actual Huambo district polygon (as a GeoJSON
+  explicitly labeled as fake data and not moved when the pilot switched
+  to Luanda (see the fixture's own README).
+- **What's needed:** the actual Luanda district polygon (as a GeoJSON
   boundary) that defines the POC's area of interest, so
   `ingestion/open_buildings.py` and `ingestion/osm_streets.py` have
   something real to clip against.
 - **Status:** not provided. Nothing in this project has touched real
-  Huambo geodata yet — every "it works" claim so far is scoped to the
-  synthetic fixture only.
+  Luanda geodata yet (beyond the Sentinel-2/vector-tile verification
+  already done) — every numbering-pipeline "it works" claim so far is
+  scoped to the synthetic fixture only.
 
 ### Persistent postal-ID sequencing
 

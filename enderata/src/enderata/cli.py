@@ -22,7 +22,7 @@ import geopandas as gpd
 
 from enderata.pipeline import run_pipeline, to_feature_collection
 from enderata.satellite.pipeline import bbox_from_center, detect_built_up_area
-from enderata.satellite.sentinel2 import HUAMBO_CENTRE
+from enderata.satellite.sentinel2 import LUANDA_CENTRE
 
 
 def export_demo(buildings_path: str, streets_path: str, out_dir: str) -> None:
@@ -118,15 +118,15 @@ def main() -> None:
     number_parser.add_argument("--streets", required=True)
     number_parser.add_argument("--out", default="/data/export")
     number_parser.add_argument("--country", default="AO")
-    number_parser.add_argument("--district", default="HUA")
+    number_parser.add_argument("--district", default="LUA")
     number_parser.add_argument("--max-distance", type=float, default=None)
 
     satellite_parser = subparsers.add_parser(
         "satellite-builtup",
         help="Fetch a real Sentinel-2 scene and compute a coarse built-up-area mask (NOT building footprints)",
     )
-    satellite_parser.add_argument("--lat", type=float, default=HUAMBO_CENTRE[0])
-    satellite_parser.add_argument("--lon", type=float, default=HUAMBO_CENTRE[1])
+    satellite_parser.add_argument("--lat", type=float, default=LUANDA_CENTRE[0])
+    satellite_parser.add_argument("--lon", type=float, default=LUANDA_CENTRE[1])
     satellite_parser.add_argument("--radius-km", type=float, default=1.6)
     satellite_parser.add_argument("--out", default="/data/export")
     satellite_parser.add_argument("--max-cloud-cover", type=float, default=20.0)

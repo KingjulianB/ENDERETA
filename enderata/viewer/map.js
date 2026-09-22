@@ -3,12 +3,15 @@
 // packaged/distributed app without prior OSMF sysadmin approval
 // (osm.wiki/Blocked) -- confirmed blocked with a 403 on a real run.
 // Instead, /tiles/{z}/{x}/{y}.pbf serves self-hosted vector tiles read
-// straight out of tiles/huambo.mbtiles (built offline with Planetiler
-// -- see tiles/README.md), covering only the Huambo pilot AOI.
-// Huambo city centre -- verified 2026-09-21 (Wikipedia/geodatos.net,
-// cross-checked against a real Sentinel-2 scene), not an approximation.
+// straight out of tiles/luanda.mbtiles (built offline with Planetiler
+// -- see tiles/README.md), covering only the Luanda pilot AOI.
+// Luanda city centre -- verified 2026-09-22 (Wikipedia, cross-checked
+// against a real Sentinel-2 scene: dense urban core, airport visible).
+// Pilot district changed from Huambo to Luanda this date -- see
+// discrepancies.md (real open high-res imagery exists for Luanda via
+// OpenAerialMap, none for Huambo).
 const map = L.map("map", { attributionControl: false }).setView(
-  [-12.77611, 15.73917],
+  [-8.83833, 13.23444],
   14
 );
 
@@ -59,6 +62,11 @@ L.vectorGrid
       aerodrome_label: HIDDEN,
       mountain_peak: HIDDEN,
       transportation_name: HIDDEN,
+      // Not present in Huambo's small tileset (no named water bodies
+      // in that bbox) -- Luanda's bbox includes the bay, which does
+      // have one, and it showed up as an unstyled default blue marker
+      // on a real render before this was added.
+      water_name: HIDDEN,
     },
     interactive: false,
   })

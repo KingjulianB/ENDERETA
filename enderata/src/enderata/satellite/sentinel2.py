@@ -12,6 +12,11 @@ Verified working end to end against a real, current scene over Huambo
 (2026-09-20, S2C_33LWF tile) -- see discrepancies.md for the coordinate
 bug this caught (Huambo's real centre sits in tile 33LWF, not the
 33LWG tile an unverified nearby-tile search first returned).
+
+Pilot district changed from Huambo to Luanda 2026-09-22: real, open
+(CC-BY 4.0) high-resolution imagery exists for Luanda via
+OpenAerialMap (a 2017 Maxar mosaic, 0.5m/pixel) -- none exists for
+Huambo at any usable resolution/licence, see discrepancies.md.
 """
 
 from __future__ import annotations
@@ -28,9 +33,9 @@ from rasterio.windows import from_bounds
 CATALOG_URL = "https://earth-search.aws.element84.com/v1"
 COLLECTION = "sentinel-2-l2a"
 
-# Wikipedia / geodatos.net, cross-checked 2026-09-21 -- see
-# discrepancies.md. Previously an unverified guess; now confirmed.
-HUAMBO_CENTRE = (-12.77611, 15.73917)  # (lat, lon)
+# Wikipedia, verified 2026-09-22 and cross-checked against a real
+# Sentinel-2 true-colour scene (dense urban core, airport visible).
+LUANDA_CENTRE = (-8.83833, 13.23444)  # (lat, lon)
 
 
 @dataclass(frozen=True)

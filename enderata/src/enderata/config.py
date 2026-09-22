@@ -16,6 +16,6 @@ def load_settings() -> Settings:
             "DATABASE_URL", "postgresql://postgres@localhost:5432/enderata"
         ),
         country_code=os.environ.get("COUNTRY_CODE", "AO"),
-        district_code=os.environ.get("DISTRICT_CODE", "HUA"),
-        aoi_district=os.environ.get("AOI_DISTRICT", "huambo"),
+        district_code=os.environ.get("DISTRICT_CODE", "LUA"),
+        aoi_district=os.environ.get("AOI_DISTRICT", "luanda"),
     )
