@@ -12,6 +12,49 @@ belongs in the current `dayX_objectives.md` instead.
 
 ## Open
 
+### Built-up mask confused open water with built-up area — RESOLVED 2026-09-22
+
+- **User: "j'ai vue que le masque confond la mer comme une zone
+  habitable."** Verified against a real Sentinel-2 scene over Luanda's
+  real coastal AOI, sampling actual pixels (not guessing): the old
+  NDBI+NDVI mask flagged ~73% of clearly-water pixels (58,572 of
+  80,558 very-low-NIR pixels) as `built_up`. Two distinct real causes:
+  1. A real, visible coastal lagoon (moderate reflectance) hit the
+     classic published NDBI/water confusion: ndbi=0.114 (>0),
+     ndvi=-0.040 (<0.3) -- both pass the old thresholds.
+  2. Very dark, near-sensor-noise-floor pixels (deep ocean, e.g.
+     red=1 green=1 nir=25 swir=124) made EVERY ratio-based index
+     numerically unstable -- one such pixel scored ndvi=0.923, high
+     enough to dodge the water exclusion on its own.
+- **Fix** (`satellite/built_up.py`): added `compute_mndwi()` (Green
+  vs SWIR, not NIR -- specifically counters NDBI's own SWIR
+  dependence, the standard remote-sensing fix for this exact
+  confusion) and a minimum-brightness gate (sum of red+green+nir+
+  swir16) that excludes near-zero-reflectance pixels outright, since
+  no index threshold can be trusted there regardless. Real urban
+  pixels checked comfortably clear the brightness floor (6,000-9,000+
+  vs. the 300 floor; problem pixels summed 150-280).
+- **Verified for real, twice** (the diagnostic session, then again on
+  a fresh production CLI run of the same scene): water pixels wrongly
+  flagged as built-up dropped from 58,572 to 2,276 (a 96% reduction),
+  with real urban brightness far above the floor (no measurable loss
+  of real coverage). `enderata satellite-builtup` (full Luanda AOI) ran
+  end-to-end post-fix: 13,591 polygons (was 24,435 on an earlier,
+  different-date scene -- not a clean before/after on its own, but
+  consistent with removing a large water-classified area). 80/80 tests
+  pass (4 new: `compute_mndwi`'s formula, the lagoon case, the
+  near-zero-brightness case, and the existing vegetation-exclusion
+  test updated for the new required params).
+- **Not fully fixed:** the pre-existing, already-documented NDBI
+  limitation (bare/cleared soil shares built-up's spectral signature)
+  is unrelated and untouched -- the mask still over-classifies at the
+  city's non-coastal edges; a residual ~40% of output polygons still
+  sit in the AOI's western/coastal third, some of which may be real
+  waterfront development and some likely still edge-case false
+  positives close to the water-brightness floor. Treat the mask as an
+  improved but still coarse density signal, not ground truth (per the
+  module's own docstring, unchanged by this fix).
+
 ### Own neural network for built-up detection — IN PROGRESS, multi-session
 
 - **Context:** user asked to build ENDERETA's own neural network

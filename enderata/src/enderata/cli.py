@@ -126,7 +126,7 @@ def satellite_builtup(
         f"ndbi>{ndbi_threshold} & ndvi<{ndvi_threshold}) -> "
         f"{len(result.feature_collection['features'])} polygons "
         "(coarse density signal, NOT individual buildings -- see DOCS.md). "
-        f"true_colour.png / ndbi.png / ndvi.png also written to {out} for inspection."
+        f"true_colour.png / ndbi.png / ndvi.png / mndwi.png also written to {out} for inspection."
     )
 
 

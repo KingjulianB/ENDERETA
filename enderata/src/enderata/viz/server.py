@@ -137,11 +137,11 @@ def load_demo():
 @app.route("/api/load-satellite", methods=["POST"])
 def load_satellite():
     """Runs the built-up detection and also saves true_colour.png,
-    ndbi.png and ndvi.png into DATA_DIR (served by /data/<filename>
-    above) so the viewer can overlay the actual processed imagery, not
-    just the final mask -- lets a human judge whether ndbi_threshold/
-    ndvi_threshold (optionally overridden in the POST body) need
-    adjusting.
+    ndbi.png, ndvi.png and mndwi.png into DATA_DIR (served by
+    /data/<filename> above) so the viewer can overlay the actual
+    processed imagery, not just the final mask -- lets a human judge
+    whether ndbi_threshold/ndvi_threshold (optionally overridden in
+    the POST body) need adjusting.
     """
     body = request.get_json(silent=True) or {}
     ndbi_threshold = float(body.get("ndbi_threshold", 0.0))

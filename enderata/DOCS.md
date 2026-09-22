@@ -63,6 +63,17 @@ government-grade hosting exists.
   and can't do, and `discrepancies.md` § Sovereign building/road
   detection model for why (NICFI's license ruled it out; no budget yet
   for imagery precise enough for real building detection).
+- **Fixed 2026-09-22** (user: "le masque confond la mer comme une zone
+  habitable"): the NDBI+NDVI mask was flagging open water (a real
+  coastal lagoon, and near-noise-floor deep ocean) as built-up --
+  verified against real pixels, 73% of clearly-water pixels wrongly
+  flagged. `built_up_mask()` now also requires MNDWI (a proper,
+  SWIR-based water index) and a minimum-brightness floor; both new
+  required params, computed automatically inside `detect_built_up_area`
+  -- no caller-facing change beyond a new `mndwi.png` debug image.
+  Verified: water false positives dropped 96% with no measurable loss
+  of real urban coverage. See `discrepancies.md` for the full
+  root-cause writeup.
 - `enderata estimate-addresses` (CLI) and `POST /api/estimate-addresses`
   (viewer button "Assign addresses (estimated)") chain three things
   into the real numbering pipeline: real OpenStreetMap streets (`enderata/

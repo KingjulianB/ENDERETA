@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.24
+- **Fixed: built-up mask was classifying open water as built-up/
+  habitable** (user: "j'ai vue que le masque confond la mer comme une
+  zone habitable"). Sampled real pixels over Luanda's real coastline:
+  the old NDBI+NDVI mask flagged 73% of clearly-water pixels as
+  built-up -- a real coastal lagoon hit the classic published NDBI/
+  water confusion, and very dark near-sensor-noise-floor deep-ocean
+  pixels made every ratio-based index numerically unstable.
+- Fixed in `satellite/built_up.py`: new `compute_mndwi()` (Green vs
+  SWIR -- the standard remote-sensing fix for NDBI's own water
+  confusion, since NDBI itself is SWIR-based) plus a minimum-
+  brightness gate (sum of all four bands) that excludes near-zero-
+  reflectance pixels outright, since no index threshold is numerically
+  trustworthy there regardless. `mndwi.png` now also saved alongside
+  `ndbi.png`/`ndvi.png` for visual inspection.
+- Verified twice on real data (the diagnostic pass, then again on a
+  fresh production CLI run): water pixels wrongly flagged as built-up
+  dropped from 58,572 to 2,276 (96% reduction), with real urban pixels
+  comfortably clear of the new brightness floor (no measurable loss of
+  real coverage). 80/80 tests pass (4 new).
+
 ## 0.1.23
 - **Nationwide (any Angola place, not just Luanda) support** (user:
   "okay je veux le faire sur toute l'Angola"). `aoi.py::load_aoi()`

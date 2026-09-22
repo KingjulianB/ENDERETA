@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from enderata.satellite.built_up import (
     built_up_mask,
+    compute_mndwi,
     compute_ndbi,
     compute_ndvi,
     vectorize_mask,
@@ -61,8 +62,8 @@ def detect_built_up_area(
     test radius) doesn't blow up memory/processing time; ~10m/pixel
     (Sentinel-2's native resolution) is used up to that cap.
 
-    If `image_dir` is given, also saves `true_colour.png`, `ndbi.png`
-    and `ndvi.png` there (georeferenced by `bounds_wgs84` in the
+    If `image_dir` is given, also saves `true_colour.png`, `ndbi.png`,
+    `ndvi.png` and `mndwi.png` there (georeferenced by `bounds_wgs84` in the
     result, for use as a Leaflet imageOverlay) so a human can inspect
     what the mask was actually computed from and judge whether
     `ndbi_threshold`/`ndvi_threshold` need adjusting.
@@ -72,7 +73,13 @@ def detect_built_up_area(
 
     ndbi = compute_ndbi(bands.swir16, bands.nir)
     ndvi = compute_ndvi(bands.nir, bands.red)
-    mask = built_up_mask(ndbi, ndvi, ndbi_threshold, ndvi_threshold)
+    mndwi = compute_mndwi(bands.green, bands.swir16)
+    # Sum of raw reflectance across all four bands -- excludes
+    # near-zero-reflectance pixels (deep water, cloud shadow) where
+    # every ratio-based index above becomes numerically unstable, see
+    # built_up.py's module docstring.
+    brightness = bands.red + bands.green + bands.nir + bands.swir16
+    mask = built_up_mask(ndbi, ndvi, mndwi, brightness, ndbi_threshold, ndvi_threshold)
     feature_collection = vectorize_mask(mask, bands.transform, bands.crs)
 
     if image_dir is not None:
@@ -82,6 +89,7 @@ def detect_built_up_area(
         )
         save_index_heatmap_png(ndbi, os.path.join(image_dir, "ndbi.png"))
         save_index_heatmap_png(ndvi, os.path.join(image_dir, "ndvi.png"), vmin=-0.2, vmax=0.6)
+        save_index_heatmap_png(mndwi, os.path.join(image_dir, "mndwi.png"))
 
     return BuiltUpResult(
         feature_collection=feature_collection,
