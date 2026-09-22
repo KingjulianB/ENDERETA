@@ -18,6 +18,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+# Local training only -- NOT part of the add-on's Docker build. See
+# requirements-ml.txt for CUDA-specific install instructions.
+ml = ["torch>=2.14"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

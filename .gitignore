@@ -7,6 +7,8 @@ data/export/
 enderata/.demo_export/
 enderata/data/
 cache/
+enderata/ml_data/
+enderata/ml_checkpoints/
 
 # Confidential business document -- the remote repo is public, this
 # file is marked "Confidential - Not for distribution" on every page.

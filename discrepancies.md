@@ -12,6 +12,59 @@ belongs in the current `dayX_objectives.md` instead.
 
 ## Open
 
+### Own neural network for built-up detection — IN PROGRESS, multi-session
+
+- **Context:** user asked to build ENDERETA's own neural network
+  ("creant notre propre reseau de neurone pour tout ca"), reopening the
+  "Sovereign building/road detection model" question below with a
+  from-scratch-training approach instead of a pretrained model.
+- **Scope, confirmed with the user before writing code:** a per-pixel
+  "does a real building footprint overlap this cell" predictor trained
+  on Sentinel-2 bands, learning a replacement for the hand-tuned
+  NDBI/NDVI threshold rule -- NOT per-building instance segmentation
+  (SpaceNet-style outlines). At Sentinel-2's 10m/pixel resolution a
+  typical building is smaller than one pixel, so individual footprint
+  segmentation isn't achievable regardless of model quality; this was
+  explained to the user before they confirmed the scope.
+- **Imagery source, re-litigated and corrected:** first checked whether
+  the 0.5m Maxar mosaic (thought to be CC-BY 4.0, see the correction
+  note in the Huambo-to-Luanda pivot entry below) could be used for
+  real per-building segmentation instead -- re-verifying its license
+  against the raw OpenAerialMap API JSON found it's actually CC-BY-NC
+  4.0 (non-commercial), confirmed against Maxar's own Open Data Program
+  docs (the whole program is NC-only bar a narrow OSM-specific
+  exception). Searched OpenAerialMap broadly around Luanda for any
+  other coverage -- found none. No paid alternative pursued (Planet,
+  Maxar direct, Airbus Pleiades all mentioned as options, budget not
+  confirmed available). User's explicit choice: proceed on Sentinel-2
+  despite its resolution ceiling rather than pursue paid imagery.
+- **Progress so far (2026-09-22):**
+  1. Local GPU (NVIDIA RTX A1000, 6GB) was present but PyTorch was
+     installed CPU-only (`torch 2.14.0+cpu`) -- reinstalled the matching
+     CUDA 13.2 build (`torch 2.14.0+cu132`), verified with a real matrix
+     multiplication on the device, not just `cuda.is_available()`.
+  2. New `ingestion/osm_buildings.py::load_osm_building_footprints` --
+     keeps real polygon/point geometry (the existing `load_osm_buildings`
+     collapses to a centroid, wrong for rasterizing labels).
+  3. New `ml/dataset.py`: `rasterize_building_mask` (real OSM footprints
+     -> binary label raster, Point geometries buffered since they have
+     zero area) + `build_training_dataset` (real Sentinel-2 fetch + real
+     OSM footprints, same pixel grid) + save/load (`.npz` + `.json`
+     sidecar). Verified against the full real Luanda AOI: 1799x1514px,
+     35,277 positive label pixels (1.3% -- consistent with OSM's sparse
+     volunteer coverage), 16.1s. Round-tripped through save/load.
+     Visually sanity-checked: the label mask overlaid on the true-colour
+     image tracks real urban texture (Ilha do Cabo peninsula, downtown
+     core), not randomly scattered -- screenshot reviewed, not just
+     numbers trusted.
+  5 new unit tests for `rasterize_building_mask`'s pure logic (no
+     network). 60/60 tests passing.
+- **Not done yet:** model architecture (small U-Net, 5 input channels),
+  patch/tile extraction with a spatial train/val split, training loop,
+  evaluation against the NDBI/NDVI baseline (must show a real
+  improvement before replacing anything), integration (CLI/route/
+  viewer). User has explicitly accepted this spans multiple sessions.
+
 ### Sovereign building/road detection model — CLOSED for now, NDBI/NDVI is the answer
 
 - **2026-09-22, final decision after trying to act on the Luanda
@@ -149,6 +202,21 @@ belongs in the current `dayX_objectives.md` instead.
   that mosaic and actually running SpaceNet inference against it. Real
   chance this unblocks proper building-footprint detection where
   Huambo never could — worth a follow-up session, not done here.
+  **CORRECTION, same day, later session:** this "CC-BY 4.0" reading was
+  wrong. Re-checked against OpenAerialMap's raw API JSON (not a summary)
+  while scoping the "own neural network" work below: the API's
+  top-level `meta.license` field does say "CC-BY 4.0" (the platform's
+  generic default), but this specific image's own `properties.license`
+  field — the one that actually governs the asset — says **"CC BY-NC
+  4.0"**. Confirmed against Maxar's own Open Data Program documentation:
+  the whole program is systematically CC-BY-NC-4.0, with a narrow
+  exception letting OpenStreetMap itself (not third parties) use it
+  commercially. So this imagery was never usable for ENDERETA's
+  commercial/government product — ruled out on the same grounds as
+  NICFI, just discovered five months later than it should have been.
+  A full re-search for any other sub-metre, genuinely commercial-safe,
+  free imagery source for Luanda found none (see the "own neural
+  network" section below).
 - **Status:** SpaceNet path was blocked on imagery budget/licensing for
   Huambo (checked and ruled out: NICFI, OSM editor imagery layers) —
   the Luanda switch may change this, untested. Sentinel-2 NDBI/NDVI

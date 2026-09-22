@@ -268,3 +268,13 @@ PYTHONPATH=src python -m enderata.cli number-district \
 5. Replace the in-memory sorted-building-id sequencing in `pipeline.py`
    with a persistent DB sequence keyed by building_id, so IDs survive
    new buildings being added later without shifting existing ones.
+6. (Items 1, 3, 5 above are now done -- see the Resolved table in
+   `project_log.md` -- kept here as history, not rewritten.) In
+   progress, multi-session: a custom neural network (`enderata/src/
+   enderata/ml/`) trained on Sentinel-2 bands + real OSM building
+   footprints as labels, to replace the hand-tuned NDBI/NDVI threshold
+   rule with a learned one. Scope explicitly limited to a per-pixel
+   built-up predictor, not per-building segmentation (no commercially-
+   licensed sub-metre imagery exists for Luanda -- see `discrepancies.md`
+   § Own neural network for built-up detection for the full scope
+   discussion and progress). Not yet integrated into the CLI/viewer.

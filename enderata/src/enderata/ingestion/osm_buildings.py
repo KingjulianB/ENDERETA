@@ -74,6 +74,28 @@ def _clean_str(value: object) -> str | None:
     return str(value)
 
 
+def load_osm_building_footprints(aoi: BaseGeometry) -> gpd.GeoDataFrame:
+    """Same source as `load_osm_buildings`, but keeps each building's
+    REAL geometry (polygon footprint, or a bare Point for the ~1.5% of
+    buildings mapped as a single node) instead of collapsing it to a
+    centroid. Used for rasterizing real footprints as ML training
+    labels (`ml/dataset.py`) -- the addressing pipeline only needs a
+    point per building, this needs the actual shape."""
+    features = ox.features_from_polygon(aoi, tags={"building": True})
+
+    building_ids = [f"osm-{element}-{osm_id}" for element, osm_id in features.index]
+    building_types = [classify_building_type(tag) for tag in features.get("building")]
+
+    return gpd.GeoDataFrame(
+        {
+            "building_id": building_ids,
+            "geometry": features.geometry.values,
+            "building_type": building_types,
+        },
+        crs=features.crs,
+    )
+
+
 def load_osm_buildings(aoi: BaseGeometry) -> gpd.GeoDataFrame:
     """Fetch real OSM-mapped buildings within `aoi` (a shapely Polygon/
     MultiPolygon, EPSG:4326) and return them shaped for `run_pipeline`,

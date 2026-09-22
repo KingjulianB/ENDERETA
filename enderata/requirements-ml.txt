@@ -1,0 +1,12 @@
+# Local training-only dependencies -- NOT part of the add-on's Docker
+# build (requirements.txt). torch is a multi-GB download; the add-on
+# doesn't need it until model inference is actually integrated into
+# the CLI/server (not done yet -- see discrepancies.md "Own neural
+# network for built-up detection").
+#
+# Install with a CUDA build matching your GPU driver, e.g. for CUDA
+# 13.2 (verified working locally, NVIDIA RTX A1000):
+#   pip install --index-url https://download.pytorch.org/whl/cu132 torch
+# The plain `torch` line below installs whatever the default index
+# resolves (CPU-only unless you pass --index-url as above).
+torch>=2.14
