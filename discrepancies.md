@@ -59,11 +59,52 @@ belongs in the current `dayX_objectives.md` instead.
      numbers trusted.
   5 new unit tests for `rasterize_building_mask`'s pure logic (no
      network). 60/60 tests passing.
-- **Not done yet:** model architecture (small U-Net, 5 input channels),
-  patch/tile extraction with a spatial train/val split, training loop,
-  evaluation against the NDBI/NDVI baseline (must show a real
-  improvement before replacing anything), integration (CLI/route/
-  viewer). User has explicitly accepted this spans multiple sessions.
+- **2026-09-22, scope upgrade -- real per-building segmentation becomes
+  possible:** user clarified that current work is non-commercial
+  prototyping ("pour le moment ce que je fais est non comercial c'est
+  juste du prototypage une fois tout est validé j'achetterai les
+  licences qu'il faut"), which the CC BY-NC 4.0 Maxar mosaic's license
+  permits. Flagged to the user first: a model trained on NC-licensed
+  imagery is itself a likely derivative and would need RE-TRAINING on
+  properly licensed imagery before commercial/government use, not just
+  a license upgrade -- user's plan already assumes this ("once
+  validated, I'll buy the licenses").
+  - Verified the Maxar 2017 Luanda mosaic (2.3GB Cloud-Optimized GeoTIFF
+    on S3, `oin-hotosm-temp` bucket -- the correct bucket; an initial
+    guess at a plausible-looking `oin-hotosm` URL 403'd, this is the
+    real one from the API's own `uuid` field) supports fast windowed
+    HTTP reads: opens in ~1.5s, a 200x200px crop in ~0.6s. A real
+    600x600px true-colour crop, visually reviewed, confirmed genuine
+    Luanda street-level detail (individual buildings, cars, a
+    roundabout) at 0.5m/pixel.
+  - New `ml/maxar_dataset.py`: tiles the real Luanda AOI into
+    512x512px (256m x 256m) patches -- 2037 total patches cover the
+    whole municipality -- fetches each via one shared COG handle (not
+    reopened per patch) and rasterizes the REAL polygon footprints
+    (not buffered points -- at 0.5m/pixel a building's actual shape
+    matters) that overlap each patch. Verified for real: 40 patches
+    built in 7.4s (2037 at that rate would take ~6 minutes), 34/40
+    contain at least one real building, mean 7.1% positive pixels.
+    Visually sanity-checked side-by-side (true colour vs. label
+    overlay) on the patch with the most coverage: the rasterized
+    footprints trace individual rooftops accurately -- this is genuine
+    per-building segmentation ground truth, not the coarser per-pixel
+    density label `ml/dataset.py`'s Sentinel-2 pipeline produces.
+  - 5 new unit tests for the pure tiling/rasterization logic (2 bugs
+    caught and fixed were in the TESTS themselves -- wrong pixel-row
+    math for a 1m/pixel test grid copied from a 10m/pixel test without
+    adjusting coordinates, and checking the wrong array index -- not in
+    `maxar_dataset.py`, confirmed by direct debugging before assuming
+    either way). 65/65 tests passing.
+- **Not done yet:** decide which imagery pipeline the actual model
+  trains on (Sentinel-2 per-pixel classifier from `ml/dataset.py`, or
+  Maxar per-building segmentation from `ml/maxar_dataset.py` -- now
+  both exist and both work; Maxar gives real building outlines but is
+  NC-licensed/prototype-only, Sentinel-2 is commercially clean but
+  coarse) or build both and compare. Model architecture, patch
+  train/val split, training loop, evaluation against the NDBI/NDVI
+  baseline, integration (CLI/route/viewer). User has explicitly
+  accepted this spans multiple sessions.
 
 ### Sovereign building/road detection model — CLOSED for now, NDBI/NDVI is the answer
 
