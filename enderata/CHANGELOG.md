@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.18
+- `numbering/street_assignment.py`'s nearest-street search now uses a
+  shapely `STRtree` spatial index (new `StreetIndex`, built once per
+  `run_pipeline()` call and reused for every building) instead of a
+  linear scan over every street. Verified against a real 20km-radius
+  Luanda extract (897 estimated buildings x 268,753 real OSM streets):
+  the street-assignment stage dropped from ~675s (measured, the
+  previous dominant cost by far) to 1.2s -- the whole
+  estimate-addresses run at that radius is now ~61s total, dominated
+  by the real Overpass (43.3s) and Sentinel-2 (14.1s) network fetches,
+  not computation.
+- API change (internal, one real caller): `assign_building_to_street`
+  now takes a `StreetIndex` instead of a raw `list[Street]`. Updated
+  `pipeline.py` (builds the index once, outside the per-building loop)
+  and `tests/unit/test_street_assignment.py` (+1 new test for an empty
+  index). 34/34 tests passing.
+
 ## 0.1.17
 - New "Assign addresses (estimated)" button in the viewer + `enderata
   estimate-addresses` CLI command. Chains three things into the

@@ -166,16 +166,18 @@ def estimate_addresses_route():
     numbering pipeline. THESE BUILDING LOCATIONS ARE ESTIMATES (a grid
     sample inside a 10m/pixel built-up mask), not verified footprints --
     see enderata.satellite.building_estimate's docstring. Body may
-    override spacing_m/max_points/max_distance; defaults match the CLI.
+    override spacing_m/max_points/max_distance/radius_km; defaults
+    match the CLI (radius_km 1.6, matching the satellite layer's AOI).
     """
     body = request.get_json(silent=True) or {}
     spacing_m = float(body.get("spacing_m", 60.0))
     max_points = int(body.get("max_points", 1000))
     max_distance = body.get("max_distance", 60.0)
     max_distance = float(max_distance) if max_distance is not None else None
+    radius_km = float(body.get("radius_km", 1.6))
 
     lat, lon = LUANDA_CENTRE
-    bbox = bbox_from_center(lat, lon, radius_km=1.6)
+    bbox = bbox_from_center(lat, lon, radius_km=radius_km)
 
     try:
         result = run_estimated_addressing(

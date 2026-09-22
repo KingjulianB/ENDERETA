@@ -22,7 +22,7 @@ import geopandas as gpd
 from enderata.numbering.address_formatter import format_address
 from enderata.numbering.ordering import BuildingOnStreet, assign_house_numbers
 from enderata.numbering.postal_id import generate_postal_id
-from enderata.numbering.street_assignment import Street, assign_building_to_street
+from enderata.numbering.street_assignment import Street, StreetIndex, assign_building_to_street
 
 
 @dataclass(frozen=True)
@@ -52,12 +52,13 @@ def run_pipeline(
 ) -> list[AddressedBuilding]:
     streets = _streets_from_geodataframe(streets_gdf)
     street_names = {street.street_id: street.name for street in streets}
+    street_index = StreetIndex(streets)
 
     assignments = {}
     geometries = {}
     for row in buildings_gdf.itertuples():
         geometries[row.building_id] = row.geometry
-        result = assign_building_to_street(row.geometry, streets, max_distance=max_distance)
+        result = assign_building_to_street(row.geometry, street_index, max_distance=max_distance)
         if result is not None:
             assignments[row.building_id] = result
 

@@ -24,7 +24,7 @@ government-grade hosting exists.
   hand against `tests/fixtures/synthetic_sample/` (5 fake buildings, 2
   fake streets) -- output confirmed correct (valid check digits, no
   duplicate IDs, address never contains the postal ID).
-- 33/33 automated tests pass, including an integration test that reruns
+- 34/34 automated tests pass, including an integration test that reruns
   the pipeline twice on the fixture and asserts identical postal IDs
   (the permanence guarantee) -- see `tests/integration/`.
 - The viewer now has a real self-hosted basemap: `tiles/luanda.mbtiles`
@@ -56,20 +56,30 @@ government-grade hosting exists.
   (viewer button "Assign addresses (estimated)") chain three things
   into the real numbering pipeline: real OpenStreetMap streets (`enderata/
   src/enderata/ingestion/osm_streets.py`, fetched live via osmnx/Overpass
-  -- verified against real Luanda data, 2305 street edges), estimated
-  building points sampled on a grid inside the Sentinel-2 built-up mask
-  (`enderata/src/enderata/satellite/building_estimate.py`, capped at
-  1000 points by default -- `street_assignment.py`'s nearest-street
-  search has no spatial index, so an uncapped grid over a real city-
-  scale built-up area is too slow for an interactive button), and
-  `pipeline.py::run_pipeline` (unchanged). Verified end-to-end against
-  real Luanda data (999/999 estimated points addressed, ~20s) and in a
-  real browser. **These building locations are ESTIMATES -- a coarse
-  grid sample, not a real building-footprint detection result** -- see
-  `discrepancies.md` § Real Luanda AOI boundary. Output is written to
-  its own `estimated_buildings.geojson`/`estimated_streets.geojson`
-  files so it never overwrites the demo fixture or gets visually
-  confused with it (separate purple layer + on-screen disclaimer).
+  -- verified against real Luanda data, 2305 street edges at the
+  default 1.6km radius), estimated building points sampled on a grid
+  inside the Sentinel-2 built-up mask (`enderata/src/enderata/satellite/
+  building_estimate.py`, capped at 1000 points by default -- keeps the
+  numbering pipeline's own cost bounded regardless of AOI size), and
+  `pipeline.py::run_pipeline` (unchanged, but its nearest-street search
+  now uses an STRtree spatial index -- see below). Verified end-to-end
+  against real Luanda data (999/999 estimated points addressed, ~20s
+  at 1.6km radius) and in a real browser. **These building locations
+  are ESTIMATES -- a coarse grid sample, not a real building-footprint
+  detection result** -- see `discrepancies.md` § Real Luanda AOI
+  boundary. Output is written to its own `estimated_buildings.geojson`/
+  `estimated_streets.geojson` files so it never overwrites the demo
+  fixture or gets visually confused with it (separate purple layer +
+  on-screen disclaimer).
+- `numbering/street_assignment.py`'s nearest-street search uses an
+  STRtree spatial index (`StreetIndex`, added 0.1.18) instead of a
+  linear scan. Verified with a real 20km-radius Luanda extract (897
+  estimated buildings x 268,753 real OSM streets, via `estimate-
+  addresses` at a wider radius than the button's default): street
+  assignment itself takes 1.2s, down from ~675s measured with the
+  previous linear scan on the same input. At that radius the ~61s
+  total run time is now almost entirely real Overpass (43.3s) and
+  Sentinel-2 (14.1s) network fetch time, not computation.
 
 ## What is NOT done yet -- do not assume otherwise
 
