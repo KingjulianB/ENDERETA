@@ -170,6 +170,29 @@ government-grade hosting exists.
   derivative of Maxar's CC BY-NC 4.0 Open Data Program imagery
   (prototype/local use only until retrained on properly licensed
   imagery).
+- **Nationwide (any Angola place, not just Luanda) support, added
+  2026-09-22** -- `aoi.py::load_aoi(place_query)` resolves any real
+  place via OSM/Nominatim (e.g. `--place "Huambo, Angola"`);
+  `load_luanda_aoi()` still works unchanged. New `--place` flag on
+  `satellite-builtup`/`estimate-addresses`/`real-addresses` (NOT on
+  `detect-buildings-ml` -- that stays Luanda-only, Maxar imagery
+  doesn't exist elsewhere). New `--building-source open_buildings` flag
+  on `real-addresses` (default stays `osm`): uses
+  `ingestion/open_buildings.py`'s Google/Microsoft/OSM combined
+  dataset instead of OSM alone -- ~861K candidates for Luanda's AOI vs
+  OSM's 7,508, and unlike OSM/Maxar this dataset genuinely covers all
+  of Angola. No address/type tags from this source though --
+  `building_type` is always `"other"`. Verified for real:
+  `satellite-builtup --place "Huambo, Angola"` ran fully end-to-end
+  (real Sentinel-2 scene, 15,392 polygons, real Huambo coordinates);
+  Open Buildings itself verified nationwide (1,182,378 real buildings
+  for Huambo province, queried directly). `real-addresses
+  --building-source open_buildings`'s full path (which also needs
+  `osm_streets.py`'s Overpass fetch) hit a likely-transient
+  connectivity issue during testing in this environment -- not yet
+  re-verified live end-to-end, see discrepancies.md § Nationwide
+  expansion. `duckdb>=1.0` added to `requirements.txt` (ships in the
+  add-on now).
 - The Dockerfile now builds past the apt-get/system-deps step (fixed
   2026-09-20: `build.yaml` was silently rejected by Supervisor's
   validation, which fell back to HA's own Alpine base image and broke

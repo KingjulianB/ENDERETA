@@ -21,7 +21,7 @@ from pathlib import Path
 import geopandas as gpd
 from shapely.geometry import box
 
-from enderata.aoi import load_luanda_aoi
+from enderata.aoi import load_aoi, load_luanda_aoi
 from enderata.db.session import open_sequence_provider
 from enderata.estimate_addresses import run_estimated_addressing
 from enderata.pipeline import run_pipeline, to_feature_collection
@@ -30,13 +30,18 @@ from enderata.satellite.pipeline import bbox_from_center, detect_built_up_area
 from enderata.satellite.sentinel2 import LUANDA_CENTRE
 
 
-def _resolve_aoi(lat: float, lon: float, radius_km: float | None):
-    """The real Luanda AOI polygon by default; `--radius-km` overrides
-    with a bbox-derived square instead (used for the large-radius
-    stress tests -- see discrepancies.md/project_log.md)."""
-    if radius_km is None:
-        return load_luanda_aoi()
-    return box(*bbox_from_center(lat, lon, radius_km))
+def _resolve_aoi(lat: float, lon: float, radius_km: float | None, place: str | None = None):
+    """The real Luanda AOI polygon by default; `--place` resolves any
+    other real place instead (2026-09-22, user: "je veux le faire sur
+    toute l'Angola" -- see aoi.py::load_aoi); `--radius-km` overrides
+    either with a bbox-derived square instead (used for the
+    large-radius stress tests -- see discrepancies.md/project_log.md).
+    `--radius-km` takes priority if both are given."""
+    if radius_km is not None:
+        return box(*bbox_from_center(lat, lon, radius_km))
+    if place is not None:
+        return load_aoi(place)
+    return load_luanda_aoi()
 
 
 def export_demo(buildings_path: str, streets_path: str, out_dir: str) -> None:
@@ -98,8 +103,9 @@ def satellite_builtup(
     max_cloud_cover: float,
     ndbi_threshold: float,
     ndvi_threshold: float,
+    place: str | None = None,
 ) -> None:
-    bbox = _resolve_aoi(lat, lon, radius_km).bounds
+    bbox = _resolve_aoi(lat, lon, radius_km, place=place).bounds
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -134,8 +140,9 @@ def estimate_addresses(
     spacing_m: float,
     max_points: int,
     max_distance: float | None,
+    place: str | None = None,
 ) -> None:
-    aoi = _resolve_aoi(lat, lon, radius_km)
+    aoi = _resolve_aoi(lat, lon, radius_km, place=place)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -181,15 +188,22 @@ def real_addresses(
     country_code: str,
     district_code: str,
     max_distance: float | None,
+    place: str | None = None,
+    building_source: str = "osm",
 ) -> None:
-    aoi = _resolve_aoi(lat, lon, radius_km)
+    aoi = _resolve_aoi(lat, lon, radius_km, place=place)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
     provider, session = open_sequence_provider(country_code, district_code)
     try:
         result = run_real_addressing(
-            aoi, country_code, district_code, max_distance=max_distance, sequence_provider=provider
+            aoi,
+            country_code,
+            district_code,
+            max_distance=max_distance,
+            sequence_provider=provider,
+            building_source=building_source,
         )
         if session is not None:
             session.commit()
@@ -223,10 +237,17 @@ def real_addresses(
         type_counts[item.building_type] = type_counts.get(item.building_type, 0) + 1
     type_summary = ", ".join(f"{count} {btype}" for btype, count in sorted(type_counts.items()))
 
-    print(
-        f"[enderata] {result.n_osm_buildings} real OSM-mapped buildings ({type_summary}), "
-        f"{result.n_streets} real OSM streets, {result.n_addressed} addressed. "
+    source_label = "real OSM-mapped" if building_source == "osm" else "real Open Buildings"
+    coverage_note = (
         "Real footprints, but OSM building coverage may be incomplete."
+        if building_source == "osm"
+        else "Real footprints from Google Open Buildings/Microsoft/OSM (merged, deduplicated) -- "
+        "no address/type tags, so building_type is always 'other'."
+    )
+    print(
+        f"[enderata] {result.n_osm_buildings} {source_label} buildings ({type_summary}), "
+        f"{result.n_streets} real OSM streets, {result.n_addressed} addressed. "
+        f"{coverage_note}"
     )
 
 
@@ -315,6 +336,11 @@ def main() -> None:
         default=None,
         help="Override: use a bbox square of this radius instead of the real Luanda AOI polygon",
     )
+    satellite_parser.add_argument(
+        "--place",
+        default=None,
+        help='Real place name to geocode instead of Luanda, e.g. "Huambo, Angola" (Sentinel-2 covers all of Angola)',
+    )
     satellite_parser.add_argument("--out", default="/data/export")
     satellite_parser.add_argument("--max-cloud-cover", type=float, default=20.0)
     satellite_parser.add_argument("--ndbi-threshold", type=float, default=0.0)
@@ -334,6 +360,11 @@ def main() -> None:
         type=float,
         default=None,
         help="Override: use a bbox square of this radius instead of the real Luanda AOI polygon",
+    )
+    estimate_parser.add_argument(
+        "--place",
+        default=None,
+        help='Real place name to geocode instead of Luanda, e.g. "Huambo, Angola" (Sentinel-2 covers all of Angola)',
     )
     estimate_parser.add_argument("--out", default="/data/export")
     estimate_parser.add_argument("--country", default="AO")
@@ -357,10 +388,29 @@ def main() -> None:
         default=None,
         help="Override: use a bbox square of this radius instead of the real Luanda AOI polygon",
     )
+    real_parser.add_argument(
+        "--place",
+        default=None,
+        help=(
+            'Real place name to geocode instead of Luanda, e.g. "Huambo, Angola" -- combine with '
+            "--building-source open_buildings for nationwide coverage (OSM buildings are Luanda-dense but "
+            "sparse elsewhere)"
+        ),
+    )
     real_parser.add_argument("--out", default="/data/export")
     real_parser.add_argument("--country", default="AO")
     real_parser.add_argument("--district", default="LUA")
     real_parser.add_argument("--max-distance", type=float, default=100.0)
+    real_parser.add_argument(
+        "--building-source",
+        choices=["osm", "open_buildings"],
+        default="osm",
+        help=(
+            "osm (default): volunteer-mapped OSM buildings, real address tags where present. "
+            "open_buildings: Google Open Buildings/Microsoft/OSM merged, ~861K candidates for Luanda alone vs "
+            "OSM's 7,508, covers all of Angola -- but no address/type tags (building_type always 'other')"
+        ),
+    )
 
     ml_parser = subparsers.add_parser(
         "detect-buildings-ml",
@@ -401,6 +451,7 @@ def main() -> None:
             args.max_cloud_cover,
             args.ndbi_threshold,
             args.ndvi_threshold,
+            place=args.place,
         )
     elif args.command == "estimate-addresses":
         estimate_addresses(
@@ -413,6 +464,7 @@ def main() -> None:
             args.spacing_m,
             args.max_points,
             args.max_distance,
+            place=args.place,
         )
     elif args.command == "real-addresses":
         real_addresses(
@@ -423,6 +475,8 @@ def main() -> None:
             args.country,
             args.district,
             args.max_distance,
+            place=args.place,
+            building_source=args.building_source,
         )
     elif args.command == "detect-buildings-ml":
         detect_buildings_ml(

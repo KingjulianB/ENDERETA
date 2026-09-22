@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.1.23
+- **Nationwide (any Angola place, not just Luanda) support** (user:
+  "okay je veux le faire sur toute l'Angola"). `aoi.py::load_aoi()`
+  resolves any real place via OSM/Nominatim; new `--place` flag on
+  `satellite-builtup`/`estimate-addresses`/`real-addresses`.
+- **Open Buildings as a real addressing source**: new `--building-source
+  open_buildings` flag on `real-addresses` (default stays `osm`) uses
+  the Google/Microsoft/OSM combined dataset (`ingestion/open_buildings.py`)
+  instead of OSM alone -- ~861K candidates for Luanda's AOI vs OSM's
+  7,508, and covers the whole country (unlike OSM or the Maxar-based
+  ML model, which stays Luanda-only). No address/type tags from this
+  source: `building_type` is always `"other"`.
+- `duckdb>=1.0` added to `requirements.txt` -- the first dependency
+  this feature needed that actually ships in the add-on's Docker image
+  (Open Buildings has a clean CC-BY-4.0/ODbL license, unlike the
+  Maxar-derived ML model, and duckdb is a small compiled wheel, unlike
+  torch).
+- Verified for real: `satellite-builtup --place "Huambo, Angola"` ran
+  fully end-to-end (real Sentinel-2 scene, 15,392 polygons, real Huambo
+  coordinates); Open Buildings itself verified nationwide (1,182,378
+  real buildings for Huambo province). `real-addresses
+  --building-source open_buildings`'s full path (also needs OSM
+  streets) hit a likely-transient Overpass connectivity issue during
+  testing -- not yet re-verified live end-to-end, see discrepancies.md.
+  77/77 tests pass.
+
 ## 0.1.22
 - **Built-up mask now covers all of Luanda** (user request: "je veux
   que le buld up mask soit sur tout luanda"). "Load satellite layer"

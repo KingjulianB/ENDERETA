@@ -252,6 +252,69 @@ belongs in the current `dayX_objectives.md` instead.
   licensed imagery -- not usable for the distributed commercial
   product as-is.
 
+### Nationwide expansion (all of Angola) — 2026-09-22
+
+- **User: "okay je veux le faire sur toute l'Angola."** Clarified scope
+  first (3 very different things share that phrase, with very
+  different feasibility): ML building detection (blocked -- Maxar
+  imagery only exists for Luanda, already confirmed); Open Buildings
+  addressing (feasible today, clean license, no imagery needed);
+  Sentinel-2 built-up mask (feasible today, global coverage). User
+  picked the latter two.
+- **`aoi.py` generalized**: new `load_aoi(place_query: str)` (any real
+  place via OSM/Nominatim geocoding), `load_luanda_aoi()` kept as a
+  thin wrapper -- zero breaking change for existing callers.
+- **`ingestion/open_buildings.py` extended**: new
+  `load_open_buildings_points()` (footprint polygons collapsed to
+  centroids, reshaped to match `osm_buildings.py::load_osm_buildings`'s
+  columns) as a drop-in alternative building source. Also added
+  `clip_to_polygon=True` (default) to `load_open_buildings()` itself --
+  the bbox-only candidate set from the remote query is now clipped
+  locally to the real AOI polygon with geopandas' vectorized
+  `intersects` (fast, sub-seconds-to-seconds even at 800K+ candidates,
+  since it's no longer fighting the remote table's lack of a spatial
+  index) before being handed to callers that need real precision (like
+  addressing), while ML training's patch-tiled rasterization can still
+  opt out (`clip_to_polygon=False`) since it re-filters per patch
+  anyway.
+- **`real_addresses.py` extended**: new `building_source` param
+  ("osm" default, unchanged behaviour; "open_buildings" new). New CLI
+  flags: `--place` (satellite-builtup/estimate-addresses/real-addresses)
+  and `--building-source` (real-addresses only). `duckdb>=1.0` added to
+  `requirements.txt`/`pyproject.toml` (ships in the add-on now -- Open
+  Buildings has a clean license, unlike Maxar, and duckdb is a small
+  compiled wheel, unlike torch).
+- **Verified for real, not just unit tests:**
+  - `enderata satellite-builtup --place "Huambo, Angola"` ran fully
+    end-to-end: real Sentinel-2 scene (S2A_33LWE_20260922, 0% cloud),
+    15,392 built-up polygons, real Huambo coordinates (~15.9°E/-11.4°N,
+    nowhere near Luanda's ~13.2°E/-8.8°N) in the output GeoJSON.
+  - `load_aoi("Huambo, Angola")` + `load_open_buildings_points()`
+    called directly: 1,182,378 real buildings for the whole Huambo
+    province in 97s (larger area than Luanda, hence slower than
+    Luanda's earlier 3.3s).
+  - `enderata real-addresses --building-source open_buildings` (full
+    CLI path, needs OSM streets too) could NOT be verified end-to-end
+    live: `osm_streets.py`'s Overpass POST fetch hit repeated
+    `ConnectTimeout`s in this environment (curl and a bare `requests.post`
+    to the same endpoint both succeeded independently, so likely a
+    transient/large-payload-specific network issue here, not a code
+    bug -- `osm_streets.py` itself is unmodified this session and the
+    same failure would hit the existing `osm` building source too).
+    77/77 unit tests pass, including new ones for the actually-testable
+    pure logic (`_footprints_to_points`, invalid `building_source`
+    fails fast before any network call).
+  - `"Lobito, Angola"` failed to geocode to a polygon via Nominatim
+    (`TypeError: ... did not geocode ... to a (Multi)Polygon`) --
+    smaller places may need a more specific query string; not every
+    Angolan place name has a Nominatim boundary polygon, a real data
+    gap outside this project's control, not a bug.
+- **Not done yet:** confirm `real-addresses --building-source
+  open_buildings` end-to-end once Overpass connectivity is reliably
+  available; district/country-code defaults are still hardcoded
+  ("AO"/"LUA") -- callers must pass `--district` explicitly for any
+  other place; no per-place default district-code lookup table exists.
+
 ### Sovereign building/road detection model — CLOSED for now, NDBI/NDVI is the answer
 
 - **2026-09-22, final decision after trying to act on the Luanda
