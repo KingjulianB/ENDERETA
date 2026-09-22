@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.1.17
+- New "Assign addresses (estimated)" button in the viewer + `enderata
+  estimate-addresses` CLI command. Chains three things into the
+  existing numbering pipeline: real OpenStreetMap streets (`ingestion/
+  osm_streets.py`, rewritten to use `ox.graph_from_bbox` -- the
+  previous version used the wrong osmnx API and was never exercised
+  against real data), estimated building points grid-sampled inside
+  the Sentinel-2 built-up mask (new `satellite/building_estimate.py`,
+  capped at 1000 points by default -- `street_assignment.py`'s
+  nearest-street search has no spatial index, so an uncapped grid over
+  a real city-scale built-up area, ~29km^2 for the current Luanda AOI,
+  produced 18000+ points and would have made the button impractically
+  slow), and the unchanged `pipeline.py::run_pipeline`.
+- **These building locations are ESTIMATES, not real building
+  footprints** -- Sentinel-2 is 10m/pixel (see `satellite/built_up.py`'s
+  docstring). Output is written to its own `estimated_buildings.geojson`/
+  `estimated_streets.geojson` files, rendered as a distinct purple
+  layer with an on-screen disclaimer, so it's never confused with the
+  synthetic demo fixture or the raw satellite mask layer.
+- Verified end-to-end against real Luanda data: 2305 real OSM street
+  edges fetched live, 999/999 estimated building points addressed,
+  ~20s total (real Sentinel-2 fetch + real Overpass fetch + numbering),
+  checked in a real browser (chrome-devtools). Caught and fixed a real
+  bug along the way: the server route's JSON response used the key
+  `count`, but the viewer's JS read `result.n_addressed` -- showed up
+  as a literal "undefined addresses assigned" note on first render.
+- 33/33 tests passing (5 new tests for `building_estimate.py`'s point
+  sampling/cap/edge-cases, 5 for `osm_streets.py`'s name-cleaning
+  fallback logic).
+
 ## 0.1.16
 - **Pilot district changed from Huambo to Luanda.** Rationale: real,
   open (CC-BY 4.0) high-resolution imagery exists for Luanda via

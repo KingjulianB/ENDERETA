@@ -5,6 +5,8 @@ __pycache__/
 .pytest_cache/
 data/export/
 enderata/.demo_export/
+enderata/data/
+cache/
 
 # Confidential business document -- the remote repo is public, this
 # file is marked "Confidential - Not for distribution" on every page.

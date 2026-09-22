@@ -19,6 +19,13 @@ NDBI+NDVI built-up mask. This is NOT building-footprint detection (see
 enderata.satellite.built_up's docstring) -- it's a free, legally-clean
 density/extent signal, kept as a separate layer from the numbered
 buildings so the two are never visually confused.
+
+Also exposes /api/estimate-addresses, which chains real OSM streets +
+the Sentinel-2 built-up mask's sampled building points (see
+enderata.estimate_addresses) through the numbering pipeline. Output is
+written to its own estimated_buildings.geojson/estimated_streets.geojson
+files (not buildings.geojson/streets.geojson) so it never gets confused
+with the synthetic demo fixture or overwrites it.
 """
 
 from __future__ import annotations
@@ -30,6 +37,7 @@ import shutil
 import geopandas as gpd
 from flask import Flask, jsonify, request, send_from_directory
 
+from enderata.estimate_addresses import run_estimated_addressing
 from enderata.pipeline import run_pipeline, to_feature_collection
 from enderata.satellite.pipeline import bbox_from_center, detect_built_up_area
 from enderata.satellite.sentinel2 import LUANDA_CENTRE
@@ -148,6 +156,47 @@ def load_satellite():
             "bounds_wgs84": list(result.bounds_wgs84),
             "ndbi_threshold": result.ndbi_threshold,
             "ndvi_threshold": result.ndvi_threshold,
+        }
+    )
+
+
+@app.route("/api/estimate-addresses", methods=["POST"])
+def estimate_addresses_route():
+    """Real OSM streets + Sentinel-2 built-up-sampled building points ->
+    numbering pipeline. THESE BUILDING LOCATIONS ARE ESTIMATES (a grid
+    sample inside a 10m/pixel built-up mask), not verified footprints --
+    see enderata.satellite.building_estimate's docstring. Body may
+    override spacing_m/max_points/max_distance; defaults match the CLI.
+    """
+    body = request.get_json(silent=True) or {}
+    spacing_m = float(body.get("spacing_m", 60.0))
+    max_points = int(body.get("max_points", 1000))
+    max_distance = body.get("max_distance", 60.0)
+    max_distance = float(max_distance) if max_distance is not None else None
+
+    lat, lon = LUANDA_CENTRE
+    bbox = bbox_from_center(lat, lon, radius_km=1.6)
+
+    try:
+        result = run_estimated_addressing(
+            bbox, "AO", "LUA", spacing_m=spacing_m, max_points=max_points, max_distance=max_distance
+        )
+    except RuntimeError as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 502
+
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(os.path.join(DATA_DIR, "estimated_buildings.geojson"), "w", encoding="utf-8") as f:
+        json.dump(to_feature_collection(result.addressed), f)
+    result.streets_gdf.to_file(os.path.join(DATA_DIR, "estimated_streets.geojson"), driver="GeoJSON")
+
+    return jsonify(
+        {
+            "status": "ok",
+            "count": result.n_addressed,
+            "n_streets": result.n_streets,
+            "n_estimated_buildings": result.n_estimated_buildings,
+            "scene_id": result.built_up.scene_id,
+            "scene_datetime": result.built_up.scene_datetime,
         }
     )
 

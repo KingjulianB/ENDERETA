@@ -242,3 +242,62 @@ recomputeButton.addEventListener("click", () => {
       recomputeButton.textContent = "Recompute with these thresholds";
     });
 });
+
+// Estimated addressing: real OSM streets + building points sampled
+// from the Sentinel-2 built-up mask, run through the same numbering
+// pipeline as the demo fixture. Kept as its own layer set (distinct
+// colour, own note) -- these building locations are ESTIMATES (a grid
+// sample, not a real footprint), never to be visually confused with
+// the synthetic demo layer or the raw satellite mask.
+const estimateLayers = [];
+const estimateButton = document.getElementById("estimate-addresses");
+const estimateNote = document.getElementById("estimate-note");
+
+function loadEstimateLayer(url, style) {
+  return fetch(`${url}?t=${Date.now()}`)
+    .then((response) => (response.ok ? response.json() : null))
+    .then((data) => {
+      if (!data) return;
+      const layer = L.geoJSON(data, style).addTo(map);
+      estimateLayers.push(layer);
+      const layerBounds = layer.getBounds();
+      if (layerBounds.isValid()) map.fitBounds(layerBounds, { padding: [24, 24] });
+    });
+}
+
+estimateButton.addEventListener("click", () => {
+  estimateButton.disabled = true;
+  estimateButton.textContent = "Estimating (Sentinel-2 + OSM)...";
+  estimateLayers.splice(0).forEach((layer) => map.removeLayer(layer));
+
+  fetch("api/estimate-addresses", { method: "POST" })
+    .then((response) => (response.ok ? response.json() : Promise.reject(response)))
+    .then((result) =>
+      Promise.all([
+        loadEstimateLayer("data/estimated_streets.geojson", {
+          style: { color: "#6a4c93", weight: 1.5, dashArray: [4, 3] },
+        }),
+        loadEstimateLayer("data/estimated_buildings.geojson", {
+          pointToLayer: (feature, latlng) =>
+            L.circleMarker(latlng, { radius: 4, color: "#6a4c93", fillOpacity: 0.9 }),
+          onEachFeature: (feature, layer) => {
+            const props = feature.properties || {};
+            if (props.display_address) layer.bindPopup(props.display_address);
+          },
+        }),
+      ]).then(() => {
+        estimateNote.hidden = false;
+        estimateNote.textContent =
+          `${result.count} addresses assigned to ESTIMATED building points ` +
+          `(grid-sampled inside the Sentinel-2 built-up mask, scene ${result.scene_id}) ` +
+          `against ${result.n_streets} real OSM streets. Not real building footprints -- see DOCS.md.`;
+      })
+    )
+    .catch(() =>
+      window.alert("ENDERETA: failed to estimate addresses -- check the add-on log.")
+    )
+    .finally(() => {
+      estimateButton.disabled = false;
+      estimateButton.textContent = "Assign addresses (estimated)";
+    });
+});

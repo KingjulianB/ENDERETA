@@ -24,7 +24,7 @@ government-grade hosting exists.
   hand against `tests/fixtures/synthetic_sample/` (5 fake buildings, 2
   fake streets) -- output confirmed correct (valid check digits, no
   duplicate IDs, address never contains the postal ID).
-- 23/23 automated tests pass, including an integration test that reruns
+- 33/33 automated tests pass, including an integration test that reruns
   the pipeline twice on the fixture and asserts identical postal IDs
   (the permanence guarantee) -- see `tests/integration/`.
 - The viewer now has a real self-hosted basemap: `tiles/luanda.mbtiles`
@@ -52,13 +52,35 @@ government-grade hosting exists.
   and can't do, and `discrepancies.md` § Sovereign building/road
   detection model for why (NICFI's license ruled it out; no budget yet
   for imagery precise enough for real building detection).
+- `enderata estimate-addresses` (CLI) and `POST /api/estimate-addresses`
+  (viewer button "Assign addresses (estimated)") chain three things
+  into the real numbering pipeline: real OpenStreetMap streets (`enderata/
+  src/enderata/ingestion/osm_streets.py`, fetched live via osmnx/Overpass
+  -- verified against real Luanda data, 2305 street edges), estimated
+  building points sampled on a grid inside the Sentinel-2 built-up mask
+  (`enderata/src/enderata/satellite/building_estimate.py`, capped at
+  1000 points by default -- `street_assignment.py`'s nearest-street
+  search has no spatial index, so an uncapped grid over a real city-
+  scale built-up area is too slow for an interactive button), and
+  `pipeline.py::run_pipeline` (unchanged). Verified end-to-end against
+  real Luanda data (999/999 estimated points addressed, ~20s) and in a
+  real browser. **These building locations are ESTIMATES -- a coarse
+  grid sample, not a real building-footprint detection result** -- see
+  `discrepancies.md` § Real Luanda AOI boundary. Output is written to
+  its own `estimated_buildings.geojson`/`estimated_streets.geojson`
+  files so it never overwrites the demo fixture or gets visually
+  confused with it (separate purple layer + on-screen disclaimer).
 
 ## What is NOT done yet -- do not assume otherwise
 
-- Ingestion is not wired into the CLI: `number-district` consumes
-  already-ingested GeoJSON, it does not call `ingestion/open_buildings.py`
-  or `ingestion/osm_streets.py` itself. Those two modules are still
-  unexercised against real data or network.
+- `ingestion/osm_streets.py` is now wired in (via `estimate-addresses`,
+  see above) and verified against real Luanda data. `ingestion/
+  open_buildings.py` (Google Open Buildings) is still unwired and
+  unexercised -- real building footprints for Luanda remain unavailable
+  (see `discrepancies.md` § Sovereign building/road detection model);
+  `estimate-addresses` uses grid-sampled points as a stand-in, not this
+  module. `number-district` still consumes already-ingested GeoJSON
+  directly, independent of either ingestion module.
 - The Dockerfile now builds past the apt-get/system-deps step (fixed
   2026-09-20: `build.yaml` was silently rejected by Supervisor's
   validation, which fell back to HA's own Alpine base image and broke

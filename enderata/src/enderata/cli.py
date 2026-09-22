@@ -20,6 +20,7 @@ from pathlib import Path
 
 import geopandas as gpd
 
+from enderata.estimate_addresses import run_estimated_addressing
 from enderata.pipeline import run_pipeline, to_feature_collection
 from enderata.satellite.pipeline import bbox_from_center, detect_built_up_area
 from enderata.satellite.sentinel2 import LUANDA_CENTRE
@@ -98,6 +99,42 @@ def satellite_builtup(
     )
 
 
+def estimate_addresses(
+    lat: float,
+    lon: float,
+    radius_km: float,
+    out_dir: str,
+    country_code: str,
+    district_code: str,
+    spacing_m: float,
+    max_points: int,
+    max_distance: float | None,
+) -> None:
+    bbox = bbox_from_center(lat, lon, radius_km)
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    result = run_estimated_addressing(
+        bbox, country_code, district_code, spacing_m=spacing_m, max_points=max_points, max_distance=max_distance
+    )
+
+    with (out / "buildings.geojson").open("w", encoding="utf-8") as f:
+        json.dump(to_feature_collection(result.addressed), f)
+    result.streets_gdf.to_file(out / "streets.geojson", driver="GeoJSON")
+
+    with (out / "addresses.csv").open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["building_id", "postal_id", "display_address"])
+        for item in result.addressed:
+            writer.writerow([item.building_id, item.postal_id, item.display_address])
+
+    print(
+        f"[enderata] estimated {result.n_estimated_buildings} building points from the built-up mask "
+        f"(scene {result.built_up.scene_id}), {result.n_streets} real OSM streets, "
+        f"{result.n_addressed} addressed. THESE ARE ESTIMATES, not verified building locations."
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="enderata")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -133,6 +170,23 @@ def main() -> None:
     satellite_parser.add_argument("--ndbi-threshold", type=float, default=0.0)
     satellite_parser.add_argument("--ndvi-threshold", type=float, default=0.3)
 
+    estimate_parser = subparsers.add_parser(
+        "estimate-addresses",
+        help=(
+            "Estimate addresses from real OSM streets + Sentinel-2 built-up-area sampled "
+            "building points (NOT real building footprints -- see DOCS.md)"
+        ),
+    )
+    estimate_parser.add_argument("--lat", type=float, default=LUANDA_CENTRE[0])
+    estimate_parser.add_argument("--lon", type=float, default=LUANDA_CENTRE[1])
+    estimate_parser.add_argument("--radius-km", type=float, default=1.6)
+    estimate_parser.add_argument("--out", default="/data/export")
+    estimate_parser.add_argument("--country", default="AO")
+    estimate_parser.add_argument("--district", default="LUA")
+    estimate_parser.add_argument("--spacing-m", type=float, default=60.0)
+    estimate_parser.add_argument("--max-points", type=int, default=1000)
+    estimate_parser.add_argument("--max-distance", type=float, default=60.0)
+
     args = parser.parse_args()
     if args.command == "export-demo":
         export_demo(args.buildings, args.streets, args.out)
@@ -149,6 +203,18 @@ def main() -> None:
             args.max_cloud_cover,
             args.ndbi_threshold,
             args.ndvi_threshold,
+        )
+    elif args.command == "estimate-addresses":
+        estimate_addresses(
+            args.lat,
+            args.lon,
+            args.radius_km,
+            args.out,
+            args.country,
+            args.district,
+            args.spacing_m,
+            args.max_points,
+            args.max_distance,
         )
 
 

@@ -134,6 +134,19 @@ belongs in the current `dayX_objectives.md` instead.
   Luanda geodata yet (beyond the Sentinel-2/vector-tile verification
   already done) — every numbering-pipeline "it works" claim so far is
   scoped to the synthetic fixture only.
+- **2026-09-22, partial progress (not a resolution):** `ingestion/
+  osm_streets.py` rewritten and verified against real Luanda streets
+  (2305 edges via osmnx/Overpass), and a new "estimate addresses"
+  feature (`estimate_addresses.py`, viewer button "Assign addresses
+  (estimated)") runs the full pipeline against real streets + building
+  points grid-sampled inside the Sentinel-2 built-up mask — see
+  `project_log.md` Resolved #14. This still does NOT close this item:
+  there's still no real AOI boundary polygon (the bbox from
+  `bbox_from_center` is a rough circle-ish square, not a real district
+  boundary) and no real building footprints (Open Buildings remains
+  unwired — see the SpaceNet/Open Buildings item above). The estimated
+  points are an explicit stand-in, documented as such everywhere they
+  surface (module docstrings, CLI output, viewer disclaimer).
 
 ### Persistent postal-ID sequencing
 
