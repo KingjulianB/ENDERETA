@@ -248,22 +248,26 @@ recomputeButton.addEventListener("click", () => {
 // pipeline as the demo fixture. Kept as its own layer set (distinct
 // colour, own note) -- these building locations are ESTIMATES (a grid
 // sample, not a real footprint), never to be visually confused with
-// the synthetic demo layer or the raw satellite mask.
-const estimateLayers = [];
-const estimateButton = document.getElementById("estimate-addresses");
-const estimateNote = document.getElementById("estimate-note");
+// the synthetic demo layer or the raw satellite mask. Real-addresses
+// (below) shares the same note element and a generic layer loader,
+// but keeps its own layer array so each button only clears its own
+// previous result, not the other's.
+const addressingNote = document.getElementById("addressing-note");
 
-function loadEstimateLayer(url, style) {
+function loadGeoJsonLayer(url, style, targetLayers) {
   return fetch(`${url}?t=${Date.now()}`)
     .then((response) => (response.ok ? response.json() : null))
     .then((data) => {
       if (!data) return;
       const layer = L.geoJSON(data, style).addTo(map);
-      estimateLayers.push(layer);
+      targetLayers.push(layer);
       const layerBounds = layer.getBounds();
       if (layerBounds.isValid()) map.fitBounds(layerBounds, { padding: [24, 24] });
     });
 }
+
+const estimateLayers = [];
+const estimateButton = document.getElementById("estimate-addresses");
 
 estimateButton.addEventListener("click", () => {
   estimateButton.disabled = true;
@@ -274,20 +278,26 @@ estimateButton.addEventListener("click", () => {
     .then((response) => (response.ok ? response.json() : Promise.reject(response)))
     .then((result) =>
       Promise.all([
-        loadEstimateLayer("data/estimated_streets.geojson", {
-          style: { color: "#6a4c93", weight: 1.5, dashArray: [4, 3] },
-        }),
-        loadEstimateLayer("data/estimated_buildings.geojson", {
-          pointToLayer: (feature, latlng) =>
-            L.circleMarker(latlng, { radius: 4, color: "#6a4c93", fillOpacity: 0.9 }),
-          onEachFeature: (feature, layer) => {
-            const props = feature.properties || {};
-            if (props.display_address) layer.bindPopup(props.display_address);
+        loadGeoJsonLayer(
+          "data/estimated_streets.geojson",
+          { style: { color: "#6a4c93", weight: 1.5, dashArray: [4, 3] } },
+          estimateLayers
+        ),
+        loadGeoJsonLayer(
+          "data/estimated_buildings.geojson",
+          {
+            pointToLayer: (feature, latlng) =>
+              L.circleMarker(latlng, { radius: 4, color: "#6a4c93", fillOpacity: 0.9 }),
+            onEachFeature: (feature, layer) => {
+              const props = feature.properties || {};
+              if (props.display_address) layer.bindPopup(props.display_address);
+            },
           },
-        }),
+          estimateLayers
+        ),
       ]).then(() => {
-        estimateNote.hidden = false;
-        estimateNote.textContent =
+        addressingNote.hidden = false;
+        addressingNote.textContent =
           `${result.count} addresses assigned to ESTIMATED building points ` +
           `(grid-sampled inside the Sentinel-2 built-up mask, scene ${result.scene_id}) ` +
           `against ${result.n_streets} real OSM streets. Not real building footprints -- see DOCS.md.`;
@@ -299,5 +309,56 @@ estimateButton.addEventListener("click", () => {
     .finally(() => {
       estimateButton.disabled = false;
       estimateButton.textContent = "Assign addresses (estimated)";
+    });
+});
+
+// Real addressing: real OSM streets + real OSM-mapped buildings (no
+// satellite fetch). These ARE real footprints, but OSM's building
+// coverage in Luanda is volunteer-mapped and may be incomplete --
+// distinct green layer so it's never confused with the purple
+// estimated layer or the red demo fixture.
+const realLayers = [];
+const realButton = document.getElementById("real-addresses");
+
+realButton.addEventListener("click", () => {
+  realButton.disabled = true;
+  realButton.textContent = "Fetching real OSM buildings...";
+  realLayers.splice(0).forEach((layer) => map.removeLayer(layer));
+
+  fetch("api/real-addresses", { method: "POST" })
+    .then((response) => (response.ok ? response.json() : Promise.reject(response)))
+    .then((result) =>
+      Promise.all([
+        loadGeoJsonLayer(
+          "data/real_streets.geojson",
+          { style: { color: "#1b7a43", weight: 1.5, dashArray: [4, 3] } },
+          realLayers
+        ),
+        loadGeoJsonLayer(
+          "data/real_buildings.geojson",
+          {
+            pointToLayer: (feature, latlng) =>
+              L.circleMarker(latlng, { radius: 4, color: "#1b7a43", fillOpacity: 0.9 }),
+            onEachFeature: (feature, layer) => {
+              const props = feature.properties || {};
+              if (props.display_address) layer.bindPopup(props.display_address);
+            },
+          },
+          realLayers
+        ),
+      ]).then(() => {
+        addressingNote.hidden = false;
+        addressingNote.textContent =
+          `${result.count} addresses assigned to ${result.n_osm_buildings} REAL OSM-mapped buildings ` +
+          `against ${result.n_streets} real OSM streets. Real footprints, but OSM coverage may be ` +
+          "incomplete (volunteer-mapped) -- see DOCS.md.";
+      })
+    )
+    .catch(() =>
+      window.alert("ENDERETA: failed to fetch real addresses -- check the add-on log.")
+    )
+    .finally(() => {
+      realButton.disabled = false;
+      realButton.textContent = "Assign addresses (real OSM buildings)";
     });
 });

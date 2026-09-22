@@ -39,6 +39,7 @@ from flask import Flask, jsonify, request, send_from_directory
 
 from enderata.estimate_addresses import run_estimated_addressing
 from enderata.pipeline import run_pipeline, to_feature_collection
+from enderata.real_addresses import run_real_addressing
 from enderata.satellite.pipeline import bbox_from_center, detect_built_up_area
 from enderata.satellite.sentinel2 import LUANDA_CENTRE
 from enderata.tileserver import get_tile
@@ -199,6 +200,43 @@ def estimate_addresses_route():
             "n_estimated_buildings": result.n_estimated_buildings,
             "scene_id": result.built_up.scene_id,
             "scene_datetime": result.built_up.scene_datetime,
+        }
+    )
+
+
+@app.route("/api/real-addresses", methods=["POST"])
+def real_addresses_route():
+    """Real OSM streets + real OSM-mapped buildings -> numbering
+    pipeline. No satellite fetch -- unlike /api/estimate-addresses,
+    this is real building footprints, but OSM's building coverage in
+    Luanda is volunteer-mapped and may be incomplete (see
+    ingestion/osm_buildings.py's docstring). Body may override
+    max_distance/radius_km.
+    """
+    body = request.get_json(silent=True) or {}
+    max_distance = body.get("max_distance", 100.0)
+    max_distance = float(max_distance) if max_distance is not None else None
+    radius_km = float(body.get("radius_km", 1.6))
+
+    lat, lon = LUANDA_CENTRE
+    bbox = bbox_from_center(lat, lon, radius_km=radius_km)
+
+    try:
+        result = run_real_addressing(bbox, "AO", "LUA", max_distance=max_distance)
+    except RuntimeError as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 502
+
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(os.path.join(DATA_DIR, "real_buildings.geojson"), "w", encoding="utf-8") as f:
+        json.dump(to_feature_collection(result.addressed), f)
+    result.streets_gdf.to_file(os.path.join(DATA_DIR, "real_streets.geojson"), driver="GeoJSON")
+
+    return jsonify(
+        {
+            "status": "ok",
+            "count": result.n_addressed,
+            "n_streets": result.n_streets,
+            "n_osm_buildings": result.n_osm_buildings,
         }
     )
 

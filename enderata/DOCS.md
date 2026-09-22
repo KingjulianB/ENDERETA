@@ -80,17 +80,39 @@ government-grade hosting exists.
   previous linear scan on the same input. At that radius the ~61s
   total run time is now almost entirely real Overpass (43.3s) and
   Sentinel-2 (14.1s) network fetch time, not computation.
+- `enderata real-addresses` (CLI) and `POST /api/real-addresses`
+  (viewer button "Assign addresses (real OSM buildings)") -- a second,
+  preferred addressing path added 0.1.19: real OSM-mapped buildings
+  (new `ingestion/osm_buildings.py`, `ox.features_from_bbox(bbox,
+  tags={"building": True})`, polygon centroid or the point itself)
+  instead of `estimate-addresses`' grid-sampled points. No satellite
+  fetch at all -- faster (1.2s verified at 1.6km radius, vs ~20s) and
+  the building locations are REAL, not estimated. Verified against real
+  Luanda data: 749/749 real OSM-mapped buildings addressed, and in a
+  real browser (distinct green layer). OSM's building coverage in
+  Luanda is real but volunteer-mapped and incomplete -- not exhaustive
+  like Google Open Buildings would be (see `discrepancies.md` §
+  Sovereign building/road detection model; that dataset's own data is
+  clearly licensed (CC-BY-4.0/ODbL) but its Source Cooperative hosting
+  turned out to need non-trivial S3/GeoParquet plumbing to access
+  reliably -- not wired in yet, a planned follow-up to fill gaps where
+  OSM has no mapped buildings, not a replacement for this path).
+  `estimate-addresses` remains available as a fallback for areas with
+  no real building data at all.
 
 ## What is NOT done yet -- do not assume otherwise
 
-- `ingestion/osm_streets.py` is now wired in (via `estimate-addresses`,
-  see above) and verified against real Luanda data. `ingestion/
+- `ingestion/osm_streets.py` and the new `ingestion/osm_buildings.py`
+  are wired in (via `estimate-addresses` and `real-addresses`, see
+  above) and verified against real Luanda data. `ingestion/
   open_buildings.py` (Google Open Buildings) is still unwired and
-  unexercised -- real building footprints for Luanda remain unavailable
-  (see `discrepancies.md` § Sovereign building/road detection model);
-  `estimate-addresses` uses grid-sampled points as a stand-in, not this
-  module. `number-district` still consumes already-ingested GeoJSON
-  directly, independent of either ingestion module.
+  unexercised -- its Source Cooperative hosting needs non-trivial S3/
+  GeoParquet access work (see `discrepancies.md` § Sovereign
+  building/road detection model). Real OSM buildings now cover the
+  preferred path where OSM has mapped data; Open Buildings remains a
+  planned follow-up to fill gaps where it hasn't. `number-district`
+  still consumes already-ingested GeoJSON directly, independent of any
+  ingestion module.
 - The Dockerfile now builds past the apt-get/system-deps step (fixed
   2026-09-20: `build.yaml` was silently rejected by Supervisor's
   validation, which fell back to HA's own Alpine base image and broke

@@ -18,6 +18,7 @@
     }
     #load-satellite { background: #b3541e; }
     #estimate-addresses { background: #6a4c93; }
+    #real-addresses { background: #1b7a43; }
     .toolbar button:disabled { opacity: .6; cursor: default; }
     #satellite-panel {
       position: absolute; z-index: 1000; bottom: 12px; left: 12px;
@@ -48,8 +49,9 @@
     <button id="clear-demo">Clear demo data</button>
     <button id="load-satellite">Load satellite layer (Sentinel-2)</button>
     <button id="estimate-addresses">Assign addresses (estimated)</button>
+    <button id="real-addresses">Assign addresses (real OSM buildings)</button>
   </div>
-  <div id="estimate-note" hidden style="
+  <div id="addressing-note" hidden style="
       position: absolute; z-index: 1000; bottom: 12px; right: 12px;
       width: 300px; padding: 10px 12px; border-radius: 4px;
       background: rgba(255,255,255,.95); font: 12px sans-serif; color: #333;

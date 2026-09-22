@@ -22,6 +22,7 @@ import geopandas as gpd
 
 from enderata.estimate_addresses import run_estimated_addressing
 from enderata.pipeline import run_pipeline, to_feature_collection
+from enderata.real_addresses import run_real_addressing
 from enderata.satellite.pipeline import bbox_from_center, detect_built_up_area
 from enderata.satellite.sentinel2 import LUANDA_CENTRE
 
@@ -135,6 +136,37 @@ def estimate_addresses(
     )
 
 
+def real_addresses(
+    lat: float,
+    lon: float,
+    radius_km: float,
+    out_dir: str,
+    country_code: str,
+    district_code: str,
+    max_distance: float | None,
+) -> None:
+    bbox = bbox_from_center(lat, lon, radius_km)
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    result = run_real_addressing(bbox, country_code, district_code, max_distance=max_distance)
+
+    with (out / "buildings.geojson").open("w", encoding="utf-8") as f:
+        json.dump(to_feature_collection(result.addressed), f)
+    result.streets_gdf.to_file(out / "streets.geojson", driver="GeoJSON")
+
+    with (out / "addresses.csv").open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["building_id", "postal_id", "display_address"])
+        for item in result.addressed:
+            writer.writerow([item.building_id, item.postal_id, item.display_address])
+
+    print(
+        f"[enderata] {result.n_osm_buildings} real OSM-mapped buildings, {result.n_streets} real OSM streets, "
+        f"{result.n_addressed} addressed. Real footprints, but OSM building coverage may be incomplete."
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="enderata")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -187,6 +219,21 @@ def main() -> None:
     estimate_parser.add_argument("--max-points", type=int, default=1000)
     estimate_parser.add_argument("--max-distance", type=float, default=60.0)
 
+    real_parser = subparsers.add_parser(
+        "real-addresses",
+        help=(
+            "Assign addresses from real OSM streets + real OSM-mapped buildings "
+            "(real footprints, but OSM coverage may be incomplete -- see DOCS.md)"
+        ),
+    )
+    real_parser.add_argument("--lat", type=float, default=LUANDA_CENTRE[0])
+    real_parser.add_argument("--lon", type=float, default=LUANDA_CENTRE[1])
+    real_parser.add_argument("--radius-km", type=float, default=1.6)
+    real_parser.add_argument("--out", default="/data/export")
+    real_parser.add_argument("--country", default="AO")
+    real_parser.add_argument("--district", default="LUA")
+    real_parser.add_argument("--max-distance", type=float, default=100.0)
+
     args = parser.parse_args()
     if args.command == "export-demo":
         export_demo(args.buildings, args.streets, args.out)
@@ -214,6 +261,16 @@ def main() -> None:
             args.district,
             args.spacing_m,
             args.max_points,
+            args.max_distance,
+        )
+    elif args.command == "real-addresses":
+        real_addresses(
+            args.lat,
+            args.lon,
+            args.radius_km,
+            args.out,
+            args.country,
+            args.district,
             args.max_distance,
         )
 

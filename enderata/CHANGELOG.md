@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.1.19
+- New "Assign addresses (real OSM buildings)" button + `enderata
+  real-addresses` CLI command. A second, preferred addressing path
+  alongside `estimate-addresses`: real OSM-mapped buildings (new
+  `ingestion/osm_buildings.py`, via `ox.features_from_bbox(bbox,
+  tags={"building": True})`) + real OSM streets -> `run_pipeline()`,
+  with no Sentinel-2 fetch at all. Verified against real Luanda data:
+  749/749 real OSM-mapped buildings addressed (~1.2s, no satellite
+  call needed) and in a real browser (new distinct green layer).
+- Investigated wiring in Google Open Buildings first (the originally-
+  discussed "real footprints" source): license is genuinely clean
+  (CC-BY-4.0/ODbL, confirmed), but its Source Cooperative hosting uses
+  a non-standard S3-compatible endpoint that doesn't resolve as
+  documented and hit rate-limiting during exploration -- real
+  engineering effort for an uncertain payoff. Found real OSM building
+  footprints already exist for Luanda instead (same Overpass mechanism
+  already used for streets, 749 buildings in the default AOI) and are
+  far simpler to use reliably today. Decision (user's explicit choice):
+  ship OSM buildings now, keep Google Open Buildings as a planned
+  follow-up to fill gaps OSM hasn't mapped -- not a replacement.
+- `estimate-addresses` (grid-sampled points, previous feature) remains
+  available as a fallback for areas with no real building data at all.
+  34/34 tests still passing (no new pure-logic units to test in
+  `osm_buildings.py` -- it's a thin osmnx wrapper, same precedent as
+  `open_buildings.py` having none).
+
 ## 0.1.18
 - `numbering/street_assignment.py`'s nearest-street search now uses a
   shapely `STRtree` spatial index (new `StreetIndex`, built once per
