@@ -1,5 +1,10 @@
-"""Minimal web server for the Luanda POC demo (pilot district changed
-from Huambo to Luanda 2026-09-22 -- see discrepancies.md).
+"""Web server for the ENDERETA viewer. Started as a Luanda-only POC
+(pilot district changed from Huambo to Luanda 2026-09-22 -- see
+discrepancies.md); the addressing/satellite routes below now accept an
+optional `place` in the POST body to run against any real Angolan
+place instead (2026-09-22/26, user: "je veux le faire sur toute
+l'Angola" -- see aoi.py::load_aoi). Luanda stays the default AOI when
+no `place` is given, so existing calls are unaffected.
 
 Serves the static Leaflet viewer and the exported GeoJSON layers. Runs
 behind Home Assistant ingress -- all asset references in the viewer
@@ -13,12 +18,17 @@ available to most users -- the demo has to be triggerable from the web
 UI itself, not just the CLI.
 
 Also exposes /api/load-satellite, which fetches a real Sentinel-2 scene
-over Luanda (via the public AWS Earth Search STAC catalog -- needs
-outbound internet from wherever this add-on runs) and computes a coarse
-NDBI+NDVI built-up mask. This is NOT building-footprint detection (see
-enderata.satellite.built_up's docstring) -- it's a free, legally-clean
-density/extent signal, kept as a separate layer from the numbered
-buildings so the two are never visually confused.
+over the requested place (Luanda by default, via the public AWS Earth
+Search STAC catalog -- needs outbound internet from wherever this
+add-on runs) and computes a coarse NDBI+NDVI built-up mask. This is NOT
+building-footprint detection (see enderata.satellite.built_up's
+docstring) -- it's a free, legally-clean density/extent signal, kept as
+a separate layer from the numbered buildings so the two are never
+visually confused. Fetched live per request rather than pre-rendered
+nationwide -- a full-country raster mosaic would need gigabytes of
+pre-processed tiles, at odds with this add-on's self-hosted/lightweight
+approach (see the nationwide basemap tiles note below for the same
+tradeoff already made for the vector basemap).
 
 Also exposes /api/estimate-addresses, which chains real OSM streets +
 the Sentinel-2 built-up mask's sampled building points (see
@@ -44,7 +54,7 @@ import geopandas as gpd
 from flask import Flask, jsonify, request, send_from_directory
 from shapely.geometry import box
 
-from enderata.aoi import load_luanda_aoi
+from enderata.aoi import load_aoi, load_luanda_aoi
 from enderata.db.session import open_sequence_provider
 from enderata.estimate_addresses import run_estimated_addressing
 from enderata.pipeline import run_pipeline, to_feature_collection
@@ -55,11 +65,19 @@ from enderata.tileserver import get_tile
 
 
 def _resolve_aoi(body: dict):
+    """Luanda by default; `place` (e.g. "Huambo, Angola") resolves any
+    other real place instead. `radius_km` overrides either with a
+    Luanda-centred bbox square (used for the large-radius stress
+    tests) and takes priority if both are given -- mirrors cli.py's
+    own `_resolve_aoi`."""
     radius_km = body.get("radius_km")
-    if radius_km is None:
-        return load_luanda_aoi()
-    lat, lon = LUANDA_CENTRE
-    return box(*bbox_from_center(lat, lon, float(radius_km)))
+    if radius_km is not None:
+        lat, lon = LUANDA_CENTRE
+        return box(*bbox_from_center(lat, lon, float(radius_km)))
+    place = body.get("place")
+    if place:
+        return load_aoi(place)
+    return load_luanda_aoi()
 
 VIEWER_DIR = os.environ.get("ENDERATA_VIEWER_DIR", "/app/viewer")
 DATA_DIR = os.environ.get("ENDERATA_DATA_DIR", "/data/export")
@@ -100,8 +118,8 @@ def data_files(filename):
 
 @app.route("/tiles/<int:z>/<int:x>/<int:y>.pbf")
 def tiles(z, x, y):
-    # See tiles/README.md: luanda.mbtiles is pre-generated (Planetiler,
-    # offline), this just reads the matching blob out of it.
+    # See tiles/README.md: angola.mbtiles (nationwide) is pre-generated
+    # (Planetiler, offline), this just reads the matching blob out of it.
     try:
         tile = get_tile(z, x, y)
     except FileNotFoundError as exc:
@@ -190,14 +208,16 @@ def estimate_addresses_route():
     max_points = int(body.get("max_points", 1000))
     max_distance = body.get("max_distance", 60.0)
     max_distance = float(max_distance) if max_distance is not None else None
+    country_code = body.get("country_code", "AO")
+    district_code = body.get("district_code", "LUA")
     aoi = _resolve_aoi(body)
 
-    provider, session = open_sequence_provider("AO", "LUA")
+    provider, session = open_sequence_provider(country_code, district_code)
     try:
         result = run_estimated_addressing(
             aoi,
-            "AO",
-            "LUA",
+            country_code,
+            district_code,
             spacing_m=spacing_m,
             max_points=max_points,
             max_distance=max_distance,
@@ -240,12 +260,20 @@ def real_addresses_route():
     body = request.get_json(silent=True) or {}
     max_distance = body.get("max_distance", 100.0)
     max_distance = float(max_distance) if max_distance is not None else None
+    country_code = body.get("country_code", "AO")
+    district_code = body.get("district_code", "LUA")
+    building_source = body.get("building_source", "osm")
     aoi = _resolve_aoi(body)
 
-    provider, session = open_sequence_provider("AO", "LUA")
+    provider, session = open_sequence_provider(country_code, district_code)
     try:
         result = run_real_addressing(
-            aoi, "AO", "LUA", max_distance=max_distance, sequence_provider=provider
+            aoi,
+            country_code,
+            district_code,
+            max_distance=max_distance,
+            sequence_provider=provider,
+            building_source=building_source,
         )
         if session is not None:
             session.commit()
@@ -266,6 +294,7 @@ def real_addresses_route():
             "count": result.n_addressed,
             "n_streets": result.n_streets,
             "n_osm_buildings": result.n_osm_buildings,
+            "building_source": result.building_source,
         }
     )
 

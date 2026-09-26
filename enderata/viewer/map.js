@@ -72,6 +72,27 @@ L.vectorGrid
   })
   .addTo(map);
 
+// Nationwide place selection (2026-09-26, user: "il s'agissait de faire
+// le system sur tout l'angola") -- an empty place falls back to the
+// Luanda default on the server (_resolve_aoi), so every button below
+// keeps working exactly as before if the user never touches this panel.
+// District code is a free-text placeholder, not a real code registry
+// (see discrepancies.md's "Nationwide expansion" -- no per-place
+// default district-code lookup exists yet), so it's left blank/editable
+// rather than silently guessed.
+const placeInput = document.getElementById("place-input");
+const districtInput = document.getElementById("district-input");
+const buildingSourceSelect = document.getElementById("building-source-select");
+
+function placeRequestBody() {
+  const body = {};
+  const place = placeInput.value.trim();
+  const district = districtInput.value.trim();
+  if (place) body.place = place;
+  if (district) body.district_code = district;
+  return body;
+}
+
 let bounds = L.latLngBounds([]);
 const activeLayers = [];
 
@@ -164,7 +185,11 @@ function fetchSatellite(ndbiThreshold, ndviThreshold) {
   return fetch("api/load-satellite", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ndbi_threshold: ndbiThreshold, ndvi_threshold: ndviThreshold }),
+    body: JSON.stringify({
+      ndbi_threshold: ndbiThreshold,
+      ndvi_threshold: ndviThreshold,
+      ...placeRequestBody(),
+    }),
   })
     .then((response) => (response.ok ? response.json() : Promise.reject(response)))
     .then((result) => {
@@ -274,7 +299,11 @@ estimateButton.addEventListener("click", () => {
   estimateButton.textContent = "Estimating (Sentinel-2 + OSM)...";
   estimateLayers.splice(0).forEach((layer) => map.removeLayer(layer));
 
-  fetch("api/estimate-addresses", { method: "POST" })
+  fetch("api/estimate-addresses", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(placeRequestBody()),
+  })
     .then((response) => (response.ok ? response.json() : Promise.reject(response)))
     .then((result) =>
       Promise.all([
@@ -334,7 +363,14 @@ realButton.addEventListener("click", () => {
   realButton.textContent = "Fetching real OSM buildings...";
   realLayers.splice(0).forEach((layer) => map.removeLayer(layer));
 
-  fetch("api/real-addresses", { method: "POST" })
+  fetch("api/real-addresses", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...placeRequestBody(),
+      building_source: buildingSourceSelect.value,
+    }),
+  })
     .then((response) => (response.ok ? response.json() : Promise.reject(response)))
     .then((result) =>
       Promise.all([
@@ -364,13 +400,17 @@ realButton.addEventListener("click", () => {
           realLayers
         ),
       ]).then(() => {
+        const sourceLabel =
+          result.building_source === "open_buildings"
+            ? "Google Open Buildings (nationwide AI-detected)"
+            : "REAL OSM-mapped";
         addressingNote.hidden = false;
         addressingNote.textContent =
-          `${result.count} addresses assigned to ${result.n_osm_buildings} REAL OSM-mapped buildings ` +
+          `${result.count} addresses assigned to ${result.n_osm_buildings} ${sourceLabel} buildings ` +
           `against ${result.n_streets} real OSM streets. Coloured by type: teal=house, orange=apartment, ` +
           "brown=warehouse (OSM's closest tag is \"industrial\", no literal \"warehouse\" exists in Luanda's " +
-          "data), green=other/untyped. Real footprints, but OSM coverage may be incomplete (volunteer-mapped) " +
-          "-- see DOCS.md.";
+          "data), green=other/untyped (Open Buildings has no type tags -- every result is \"other\"). " +
+          "Real footprints, but coverage may be incomplete -- see DOCS.md.";
       })
     )
     .catch(() =>

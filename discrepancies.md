@@ -358,6 +358,73 @@ belongs in the current `dayX_objectives.md` instead.
   ("AO"/"LUA") -- callers must pass `--district` explicitly for any
   other place; no per-place default district-code lookup table exists.
 
+### Nationwide basemap + viewer place selection — RESOLVED 2026-09-26
+
+- **User, resuming after a session gap: "il s'agissait de faire le
+  system sur tout l'angola et de télécharger les cartes et images
+  gps."** Investigating what was actually left undone (git history was
+  clean/committed up to the water-mask fix above) surfaced two real
+  gaps: the self-hosted vector basemap was still clipped to Luanda
+  (`tiles/luanda.mbtiles`, 696KB) even though the addressing/satellite
+  pipelines had already gone nationwide; and a raw Sentinel-2 archive
+  covering the whole country (166.9GB, `ml_data/sentinel2_angola`, 1240
+  MGRS tiles' worth of band files) had been downloaded in an earlier,
+  never-committed session (found via a leftover scratch script,
+  `download_angola_sentinel2.py`) but never wired into anything.
+- **Basemap**: regenerated with the exact same cached Planetiler build
+  and Geofabrik OSM extract as the original Luanda-only tileset, just
+  without the `--bounds` clip -- `tiles/angola.mbtiles`, 154MB,
+  298,207 tiles, same zoom range (0-14) and vector layer set (all
+  already styled in `map.js`, no new unstyled-layer regression). Old
+  file removed, `tileserver.py`/`server.py` point to the new one.
+- **Satellite imagery, explicit decision with the user:** presented
+  three real options -- fetch-on-demand per place (reuses the existing,
+  already-verified Sentinel-2 pipeline, no pre-processing); read the
+  166.9GB local archive as a cache with a live fallback; or build a
+  genuine pre-rendered national raster tile pyramid from that archive
+  (the "photo equivalent" of the vector basemap, but far more
+  engineering and still not small -- estimated hundreds of MB to a few
+  GB after compression, against this project's stated preference for a
+  small self-hosted file). **User chose fetch-on-demand.** The 166.9GB
+  archive is therefore NOT wired into the shipped product -- it stays
+  local, gitignored (`ml_data/`), useful only as potential ML training
+  data if a future session revisits nationwide model training, per its
+  original download-script docstring's now-abandoned intent (transfer
+  to HA's storage for offline use). Not deleted, since the user didn't
+  ask to delete it, but flagged here as unused so a future session
+  doesn't assume it's load-bearing.
+- **Viewer wiring**: the CLI already supported `--place`
+  (`aoi.py::load_aoi`) since the original nationwide-expansion work
+  above, but the web viewer (the add-on's actual UI) was still
+  hardcoded to `LUANDA_CENTRE` with no way to select another place.
+  Added a "Place" panel (place name, district code, building-source
+  dropdown) that feeds `place`/`district_code`/`building_source` into
+  the existing `/api/load-satellite`, `/api/estimate-addresses`,
+  `/api/real-addresses` POST bodies; `server.py`'s own `_resolve_aoi`
+  extended to mirror `cli.py`'s (place -> `load_aoi`, radius_km ->
+  bbox override, otherwise Luanda default -- unchanged priority order).
+- **Verified for real**, not just unit tests: `/api/load-satellite`
+  called directly with `{"place": "Huambo, Angola"}` through a real
+  locally-run instance of the actual Flask app returned real
+  Huambo-region bounds (~14.8-16.6°E / -13.8 to -11.4°N) and a real
+  Sentinel-2-derived built-up mask (22,589 polygons) -- not Luanda's.
+  `/api/real-addresses` called with an empty body (the pre-existing
+  default path) returned the exact same numbers as the last verified
+  Luanda run (40,082 streets, 7,508 buildings) -- confirms the
+  country_code/district_code refactor (from hardcoded to
+  request-body-driven) is a true no-op when no place is given.
+  91/91 unit tests pass (2 updated for the new nationwide tileset
+  bounds, no logic change needed elsewhere). Test server process
+  confirmed stopped afterward (`taskkill`), no leftover listener on
+  the test port.
+- **Not done yet:** no automatic recentring of the map itself when a
+  place is typed (the existing per-action `fitBounds` behaviour just
+  naturally lands on whatever place was requested once a button is
+  clicked) -- a dedicated "go to place" button/route was considered and
+  deliberately left out to keep this change minimal, per the user's
+  "on-demand" choice; still no per-place default district-code lookup
+  (same known gap as the original nationwide-expansion entry above).
+
 ### Sovereign building/road detection model — CLOSED for now, NDBI/NDVI is the answer
 
 - **2026-09-22, final decision after trying to act on the Luanda

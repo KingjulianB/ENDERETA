@@ -27,9 +27,10 @@ government-grade hosting exists.
 - 55/55 automated tests pass, including an integration test that reruns
   the pipeline twice on the fixture and asserts identical postal IDs
   (the permanence guarantee) -- see `tests/integration/`.
-- The viewer now has a real self-hosted basemap: `tiles/luanda.mbtiles`
-  (OpenMapTiles vector tiles, generated offline with Planetiler --
-  see `tiles/README.md`) served at `GET /tiles/<z>/<x>/<y>.pbf` and
+- The viewer now has a real self-hosted basemap: `tiles/angola.mbtiles`
+  (OpenMapTiles vector tiles, generated offline with Planetiler,
+  **nationwide since 2026-09-26** -- was Luanda-only before, see
+  `tiles/README.md`) served at `GET /tiles/<z>/<x>/<y>.pbf` and
   rendered client-side with Leaflet.VectorGrid. No third-party tile
   host, no usage-policy risk (unlike the earlier OSM-tile 403). Roads,
   buildings, water and landuse render; road/place text labels don't
@@ -204,6 +205,17 @@ government-grade hosting exists.
   re-verified live end-to-end, see discrepancies.md § Nationwide
   expansion. `duckdb>=1.0` added to `requirements.txt` (ships in the
   add-on now).
+- **Nationwide support extended to the viewer itself, 2026-09-26**
+  (previously CLI-only) -- a new "Place" panel (place name, district
+  code, building-source dropdown) sends `place`/`district_code`/
+  `building_source` in the POST body of `/api/load-satellite`,
+  `/api/estimate-addresses` and `/api/real-addresses`; an empty place
+  still defaults to Luanda server-side, so nothing existing changes
+  behaviour. Satellite imagery stays fetched live per place rather than
+  pre-rendered nationwide -- a full-country raster mosaic would need
+  gigabytes of pre-processed tiles, at odds with this add-on's
+  self-hosted/lightweight approach (unlike the vector basemap, which is
+  small enough nationwide -- 154MB).
 - The Dockerfile now builds past the apt-get/system-deps step (fixed
   2026-09-20: `build.yaml` was silently rejected by Supervisor's
   validation, which fell back to HA's own Alpine base image and broke

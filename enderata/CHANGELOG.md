@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.25
+- **Nationwide basemap**: self-hosted vector tiles (`tiles/`) switched
+  from a Luanda-only clip (`luanda.mbtiles`, 696KB) to the whole
+  country (`angola.mbtiles`, 154MB, 298,207 tiles, same Planetiler
+  build, no `--bounds` clip this time). `tileserver.py`/`server.py`
+  updated; old file removed.
+- **Nationwide place selection added to the viewer** (previously
+  CLI-only via `--place`) -- a new "Place" panel (place name, district
+  code, building-source dropdown) lets `/api/load-satellite`,
+  `/api/estimate-addresses` and `/api/real-addresses` run against any
+  real Angolan place, not just Luanda. Empty place still defaults to
+  Luanda (no behaviour change for existing use). Verified for real
+  against Huambo through the live HTTP API.
+- Satellite imagery stays fetched live per place rather than
+  pre-rendered nationwide (decision made explicitly with the user,
+  given a full-country raster mosaic would need gigabytes of
+  pre-processed tiles) -- see discrepancies.md.
+
 ## 0.1.24
 - **Fixed: built-up mask was classifying open water as built-up/
   habitable** (user: "j'ai vue que le masque confond la mer comme une

@@ -43,6 +43,15 @@ export ENDERATA_VIEWER_DIR=/app/viewer
 export ENDERATA_DATA_DIR=/data/export
 export PORT=8000
 
+# The nationwide basemap (tiles/angola.mbtiles, 154MB) exceeds GitHub's
+# 100MB file size limit, so it isn't baked into the Docker image via
+# the Dockerfile's `COPY tiles ./tiles` -- it's deployed straight into
+# this add-on's persistent /data (host-writable, survives restarts and
+# add-on updates) instead. See tiles/README.md "Deployment" section.
+if [ -f /data/tiles/angola.mbtiles ]; then
+  export ENDERATA_MBTILES_PATH=/data/tiles/angola.mbtiles
+fi
+
 mkdir -p "${ENDERATA_DATA_DIR}"
 
 echo "[enderata] Starting viewer server on :${PORT}..."

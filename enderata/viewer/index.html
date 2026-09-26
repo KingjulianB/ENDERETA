@@ -20,6 +20,16 @@
     #estimate-addresses { background: #6a4c93; }
     #real-addresses { background: #1b7a43; }
     .toolbar button:disabled { opacity: .6; cursor: default; }
+    #place-panel {
+      position: absolute; z-index: 1000; top: 60px; left: 50px;
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      padding: 8px 10px; border-radius: 4px; max-width: 90%;
+      background: rgba(255,255,255,.95); font: 12px sans-serif; color: #333;
+      box-shadow: 0 1px 4px rgba(0,0,0,.2);
+    }
+    #place-panel label { font-weight: bold; }
+    #place-panel input[type="text"] { width: 150px; padding: 3px 5px; }
+    #place-panel select { padding: 3px 5px; }
     #satellite-panel {
       position: absolute; z-index: 1000; bottom: 12px; left: 12px;
       width: 300px; padding: 10px 12px; border-radius: 4px;
@@ -50,6 +60,17 @@
     <button id="load-satellite">Load satellite layer (Sentinel-2)</button>
     <button id="estimate-addresses">Assign addresses (estimated)</button>
     <button id="real-addresses">Assign addresses (real OSM buildings)</button>
+  </div>
+  <div id="place-panel">
+    <label for="place-input">Place</label>
+    <input type="text" id="place-input" placeholder="Luanda, Angola (default)" />
+    <label for="district-input">District code</label>
+    <input type="text" id="district-input" placeholder="LUA" maxlength="8" />
+    <label for="building-source-select">Buildings</label>
+    <select id="building-source-select">
+      <option value="osm">Real OSM buildings</option>
+      <option value="open_buildings">Google Open Buildings (nationwide)</option>
+    </select>
   </div>
   <div id="addressing-note" hidden style="
       position: absolute; z-index: 1000; bottom: 12px; right: 12px;

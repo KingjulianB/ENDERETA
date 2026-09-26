@@ -1,18 +1,17 @@
-"""Serves vector tiles directly out of the pre-generated Luanda MBTiles
-file (tiles/luanda.mbtiles -- see tiles/README.md for how it was
-built with Planetiler). No Planetiler/Java at runtime: MBTiles is just
-a SQLite database, this does a read-only lookup per request.
+"""Serves vector tiles directly out of the pre-generated nationwide
+MBTiles file (tiles/angola.mbtiles -- see tiles/README.md for how it
+was built with Planetiler, and for the earlier Luanda-only version this
+replaced 2026-09-26). No Planetiler/Java at runtime: MBTiles is just a
+SQLite database, this does a read-only lookup per request.
 
 MBTiles stores tiles in TMS row order (Y=0 at the south), while web map
 libraries (MapLibre, Leaflet) request tiles in XYZ order (Y=0 at the
 north) -- get_tile() converts between the two. Verified against the
 real generated file: at z14, the tile independently computed to cover
 Luanda's centre (8794, 8595 XYZ) matches tile_row=7788 in the MBTiles
-table via xyz_y = (2**z - 1) - tms_y = 16383 - 7788 = 8595.
-
-Pilot district changed from Huambo to Luanda 2026-09-22 (open,
-CC-BY 4.0 high-res imagery exists for Luanda via OpenAerialMap; none
-for Huambo -- see discrepancies.md).
+table via xyz_y = (2**z - 1) - tms_y = 16383 - 7788 = 8595 -- still
+holds in the nationwide file since it uses the same zoom range (0-14)
+and tiling scheme, just a larger extent.
 """
 
 from __future__ import annotations
@@ -21,7 +20,7 @@ import os
 import sqlite3
 from pathlib import Path
 
-MBTILES_PATH = os.environ.get("ENDERATA_MBTILES_PATH", "/app/tiles/luanda.mbtiles")
+MBTILES_PATH = os.environ.get("ENDERATA_MBTILES_PATH", "/app/tiles/angola.mbtiles")
 
 # Printed once at import time (visible in the HA add-on log, PYTHONUNBUFFERED=1
 # is set in the Dockerfile) -- "map is blank" is otherwise silent and
